@@ -1,0 +1,1082 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../widgets/course_model.dart';
+import '../utils/route_manager.dart';
+import 'present_question_screen.dart';
+import 'question_results_screen.dart';
+
+class InstructorCourseDetailScreen extends StatefulWidget {
+  final Course course;
+
+  const InstructorCourseDetailScreen({super.key, required this.course});
+
+  @override
+  State<InstructorCourseDetailScreen> createState() => _InstructorCourseDetailScreenState();
+}
+
+class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScreen> {
+  // Mock data for notifications
+  final List<Map<String, String>> _notifications = [
+    {
+      'title': 'Lecture 7 has been uploaded.',
+      'time': '3/10 11:00 PM',
+      'icon': 'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2F95f43002-a4f9-46d0-b34f-6240401cf2a9.png',
+    },
+    {
+      'title': 'Assignment 3 has been uploaded.',
+      'time': '5/10 10:00 AM',
+      'icon': 'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2Fde7fb90a-a5aa-424f-9c3a-7c1ba7596fa1.png',
+    },
+    {
+      'title': 'Quiz 2 has been scheduled',
+      'time': '2/10 9:30 AM',
+      'icon': 'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2F676369d5-b87f-44a2-98cd-257f75320b56.png',
+    },
+  ];
+
+  // Mock data for attendance records
+  final List<Map<String, dynamic>> _attendanceRecords = [
+    {
+      'date': '2024-03-15',
+      'present': 45,
+      'total': 50,
+      'students': [
+        {'name': 'Ali Khan', 'rollNumber': '241631445'},
+        {'name': 'Sara Ahmed', 'rollNumber': '241631446'},
+        {'name': 'Usman Ali', 'rollNumber': '241631447'},
+        // ... more students
+      ]
+    },
+    {
+      'date': '2024-03-10',
+      'present': 42,
+      'total': 50,
+      'students': [
+        {'name': 'Ali Khan', 'rollNumber': '241631445'},
+        {'name': 'Sara Ahmed', 'rollNumber': '241631446'},
+        // ... more students
+      ]
+    },
+    {
+      'date': '2024-03-05',
+      'present': 48,
+      'total': 50,
+      'students': [
+        {'name': 'Ali Khan', 'rollNumber': '241631445'},
+        {'name': 'Usman Ali', 'rollNumber': '241631447'},
+        // ... more students
+      ]
+    },
+  ];
+
+  // Mock data for enrollment requests
+  final List<Map<String, String>> _enrollmentRequests = [
+    {'name': 'Ahmed Raza', 'rollNumber': '241631448'},
+    {'name': 'Fatima Noor', 'rollNumber': '241631449'},
+    {'name': 'Bilal Shah', 'rollNumber': '241631450'},
+  ];
+
+  void _presentQuestion() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PresentQuestionScreen(course: widget.course),
+      ),
+    );
+  }
+
+  void _scheduleQuiz() {
+    Navigator.pushNamed(
+      context,
+      RouteManager.getScheduleQuizRoute(),
+      arguments: widget.course,
+    );
+  }
+
+  void _viewAttendanceRecord(Map<String, dynamic> record) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AttendanceRecordScreen(
+          course: widget.course,
+          record: record,
+        ),
+      ),
+    );
+  }
+
+  void _viewEnrollmentRequests() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EnrollmentRequestsScreen(
+          course: widget.course,
+          requests: _enrollmentRequests,
+          onUpdate: () {
+            setState(() {}); // Refresh when returning
+          },
+        ),
+      ),
+    );
+  }
+
+  void _viewQuestionResults() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => QuestionResultsScreen(
+          course: widget.course,
+          question: "Sample question from previous session",
+          questionType: "MCQ",
+          options: ["Option A", "Option B", "Option C", "Option D"],
+          correctAnswerIndex: 1,
+        ),
+      ),
+    );
+  }
+
+  void _onBackPressed() {
+    Navigator.pushReplacementNamed(context, RouteManager.getCoursesRoute());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF1E1E1E)),
+          onPressed: _onBackPressed,
+        ),
+        title: Text(
+          widget.course.name,
+          style: GoogleFonts.inter(
+            color: const Color(0xFF111827),
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // Course Header
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: widget.course.gradient,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.course.name,
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    widget.course.instructor,
+                    style: GoogleFonts.inter(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Latest Notifications
+            _buildNotificationsSection(),
+
+            const SizedBox(height: 24),
+
+            // Attendance Records Section
+            _buildAttendanceSection(),
+
+            const SizedBox(height: 24),
+
+            // Instructor Tools Section
+            _buildInstructorToolsSection(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // In your course_detail_screen.dart - just replace colors
+  Widget _buildNotificationsSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor, // Automatically adapts
+        border: Border.all(color: Theme.of(context).dividerColor), // Automatically adapts
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).brightness == Brightness.dark 
+                ? Colors.black.withOpacity(0.5)
+                : const Color(0x0C000000),
+            spreadRadius: 0,
+            offset: const Offset(0, 1),
+            blurRadius: 2,
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Latest Notifications',
+            style: GoogleFonts.inter(
+              color: Theme.of(context).colorScheme.onBackground, // Automatically adapts
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Notifications from LMS',
+            style: GoogleFonts.inter(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), // Automatically adapts
+              fontSize: 14,
+            ),
+          ),
+          // ... rest of your existing code
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotificationItem(Map<String, String> notification) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade400),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Image.network(
+            notification['icon']!,
+            width: 19,
+            height: 19,
+            fit: BoxFit.contain,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  notification['title']!,
+                  style: GoogleFonts.inter(
+                    color: const Color(0xFF1E1E1E),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  notification['time']!,
+                  style: GoogleFonts.inter(
+                    color: const Color(0xFF1E1E1E),
+                    fontSize: 14,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttendanceSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFF3F4F6)),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0C000000),
+            spreadRadius: 0,
+            offset: Offset(0, 1),
+            blurRadius: 2,
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Attendance Records',
+            style: GoogleFonts.inter(
+              color: const Color(0xFF1F2937),
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'View attendance records for your course',
+            style: GoogleFonts.inter(
+              color: const Color(0xFF6B7280),
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Column(
+            children: _attendanceRecords.map((record) => _buildAttendanceItem(record)).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttendanceItem(Map<String, dynamic> record) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => _viewAttendanceRecord(record),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Date: ${record['date']}',
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFF1F2937),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Attendance: ${record['present']}/${record['total']} students',
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFF6B7280),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  color: const Color(0xFF6B7280),
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInstructorToolsSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFF3F4F6)),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0C000000),
+            spreadRadius: 0,
+            offset: Offset(0, 1),
+            blurRadius: 2,
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Instructor Tools',
+            style: GoogleFonts.inter(
+              color: const Color(0xFF1F2937),
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Manage your course activities',
+            style: GoogleFonts.inter(
+              color: const Color(0xFF6B7280),
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Present Question Section
+          Text(
+            'Present Question',
+            style: GoogleFonts.inter(
+              color: const Color(0xFF1F2937),
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Send a real-time question to your students',
+            style: GoogleFonts.inter(
+              color: const Color(0xFF6B7280),
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            height: 56,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x19000000),
+                  spreadRadius: 0,
+                  offset: Offset(0, 10),
+                  blurRadius: 15,
+                ),
+                BoxShadow(
+                  color: Color(0x19000000),
+                  spreadRadius: 0,
+                  offset: Offset(0, 4),
+                  blurRadius: 6,
+                )
+              ],
+              gradient: const LinearGradient(
+                colors: [Color(0xFF4E9FEC), Color(0xFF5CD6C0)],
+              ),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: _presentQuestion,
+                child: Center(
+                  child: Text(
+                    'Present Question',
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Schedule Quiz Section
+          Text(
+            'Schedule Quiz',
+            style: GoogleFonts.inter(
+              color: const Color(0xFF1F2937),
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Create and schedule assessments for your students',
+            style: GoogleFonts.inter(
+              color: const Color(0xFF6B7280),
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            height: 56,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x19000000),
+                  spreadRadius: 0,
+                  offset: Offset(0, 10),
+                  blurRadius: 15,
+                ),
+                BoxShadow(
+                  color: Color(0x19000000),
+                  spreadRadius: 0,
+                  offset: Offset(0, 4),
+                  blurRadius: 6,
+                )
+              ],
+              gradient: const LinearGradient(
+                colors: [Color(0xFF4E9FEC), Color(0xFF5CD6C0)],
+              ),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: _scheduleQuiz,
+                child: Center(
+                  child: Text(
+                    'Schedule Quiz',
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Enrollment Requests Button
+          Container(
+            width: double.infinity,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: _viewEnrollmentRequests,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.person_add,
+                      color: widget.course.color,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'View Enrollment Requests',
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFF374151),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Review Question Results Button
+          Container(
+            width: double.infinity,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: _viewQuestionResults,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.analytics,
+                      color: widget.course.color,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Review Question Results',
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFF374151),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Attendance Record Screen
+class AttendanceRecordScreen extends StatelessWidget {
+  final Course course;
+  final Map<String, dynamic> record;
+
+  const AttendanceRecordScreen({
+    super.key,
+    required this.course,
+    required this.record,
+  });
+
+  void _onBackPressed(BuildContext context) {
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF1E1E1E)),
+          onPressed: () => _onBackPressed(context),
+        ),
+        title: Text(
+          'Attendance Record - ${record['date']}',
+          style: GoogleFonts.inter(
+            color: const Color(0xFF111827),
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // Header
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: course.gradient,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'Attendance Summary',
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${record['present']}/${record['total']} students present',
+                    style: GoogleFonts.inter(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Students List
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: const Color(0xFFF3F4F6)),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x0C000000),
+                    spreadRadius: 0,
+                    offset: Offset(0, 1),
+                    blurRadius: 2,
+                  )
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Students Present',
+                    style: GoogleFonts.inter(
+                      color: const Color(0xFF1F2937),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ...List.generate(
+                    record['students'].length,
+                    (index) => _buildStudentItem(record['students'][index]),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStudentItem(Map<String, dynamic> student) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: course.color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.person,
+              color: course.color,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  student['name'],
+                  style: GoogleFonts.inter(
+                    color: const Color(0xFF1F2937),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  student['rollNumber'],
+                  style: GoogleFonts.inter(
+                    color: const Color(0xFF6B7280),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Enrollment Requests Screen
+class EnrollmentRequestsScreen extends StatefulWidget {
+  final Course course;
+  final List<Map<String, String>> requests;
+  final VoidCallback onUpdate;
+
+  const EnrollmentRequestsScreen({
+    super.key,
+    required this.course,
+    required this.requests,
+    required this.onUpdate,
+  });
+
+  @override
+  State<EnrollmentRequestsScreen> createState() => _EnrollmentRequestsScreenState();
+}
+
+class _EnrollmentRequestsScreenState extends State<EnrollmentRequestsScreen> {
+  void _onBackPressed() {
+    Navigator.pop(context);
+  }
+
+  void _handleRequest(int index, bool accepted) {
+    setState(() {
+      widget.requests.removeAt(index);
+    });
+    widget.onUpdate();
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Request ${accepted ? 'accepted' : 'rejected'}'),
+        backgroundColor: accepted ? Colors.green : Colors.red,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF1E1E1E)),
+          onPressed: _onBackPressed,
+        ),
+        title: Text(
+          'Enrollment Requests',
+          style: GoogleFonts.inter(
+            color: const Color(0xFF111827),
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      body: widget.requests.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.check_circle,
+                    color: Colors.green.shade600,
+                    size: 64,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No pending requests',
+                    style: GoogleFonts.inter(
+                      color: const Color(0xFF6B7280),
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  // Header
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: widget.course.gradient,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Pending Enrollment Requests',
+                          style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${widget.requests.length} request(s) pending',
+                          style: GoogleFonts.inter(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Requests List
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: const Color(0xFFF3F4F6)),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x0C000000),
+                          spreadRadius: 0,
+                          offset: Offset(0, 1),
+                          blurRadius: 2,
+                        )
+                      ],
+                    ),
+                    child: Column(
+                      children: List.generate(
+                        widget.requests.length,
+                        (index) => _buildRequestItem(widget.requests[index], index),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildRequestItem(Map<String, String> request, int index) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: widget.course.color.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.person,
+                  color: widget.course.color,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      request['name']!,
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFF1F2937),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      request['rollNumber']!,
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFF6B7280),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    border: Border.all(color: Colors.red.shade200),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => _handleRequest(index, false),
+                      child: Center(
+                        child: Text(
+                          'Reject',
+                          style: GoogleFonts.inter(
+                            color: Colors.red.shade700,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  height: 44,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF4E9FEC), Color(0xFF5CD6C0)],
+                    ),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => _handleRequest(index, true),
+                      child: Center(
+                        child: Text(
+                          'Accept',
+                          style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
