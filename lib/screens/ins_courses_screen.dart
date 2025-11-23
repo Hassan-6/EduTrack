@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../widgets/course_model.dart';
+import 'package:provider/provider.dart';
 import '../utils/route_manager.dart';
+import '../widgets/role_guard.dart';
+import 'create_course_screen.dart';
+import '../services/auth_provider.dart';
+import '../services/firebase_service.dart';
+import 'instructor_course_detail_screen.dart';
 
 class InstructorCoursesScreen extends StatefulWidget {
   const InstructorCoursesScreen({super.key});
@@ -11,56 +16,79 @@ class InstructorCoursesScreen extends StatefulWidget {
 }
 
 class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
-  final List<Course> _courses = [
-    Course(
-      id: '1',
-      name: 'Introduction to Programming',
-      instructor: 'Dr. Sarah Mitchell',
-      color: const Color(0xFF4E9FEC),
-      gradient: const [Color(0xFF4E9FEC), Color(0xFF2563EB)],
-      icon: Icons.code,
-      recentActivity: 'New Quiz available: Week 3 Assessment',
-      timeAgo: '2 hours ago',
-      assignmentsDue: 2,
-      unreadMessages: 3,
-    ),
-    Course(
-      id: '2',
-      name: 'Data Structures',
-      instructor: 'Dr. Sarah Mitchell',
-      color: const Color(0xFF5CD6C0),
-      gradient: const [Color(0xFF5CD6C0), Color(0xFF16A34A)],
-      icon: Icons.architecture,
-      recentActivity: 'Assignment 3 due next week',
-      timeAgo: '1 day ago',
-      assignmentsDue: 1,
-      unreadMessages: 0,
-    ),
-  ];
+  String _instructorName = 'Instructor';
+  bool _isLoadingName = true;
+  List<Map<String, dynamic>> _firebaseCourses = [];
+  bool _isLoadingCourses = true;
 
-  void _addNewCourse() {
-    // TODO: Implement add course functionality
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add New Course'),
-        content: const Text('Course creation functionality would go here.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
+  @override
+  void initState() {
+    super.initState();
+    _loadInstructorName();
+    _loadInstructorCourses();
   }
 
-  void _viewCourseDetails(Course course) {
-    Navigator.pushNamed(
+  Future<void> _loadInstructorName() async {
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      if (authProvider.currentUser != null) {
+        final userProfile = await FirebaseService.getUserProfile(authProvider.currentUser!.uid);
+        if (userProfile != null && mounted) {
+          setState(() {
+            _instructorName = userProfile['name'] ?? 'Instructor';
+            _isLoadingName = false;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading instructor name: $e');
+      if (mounted) {
+        setState(() {
+          _instructorName = 'Instructor';
+          _isLoadingName = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadInstructorCourses() async {
+    setState(() {
+      _isLoadingCourses = true;
+    });
+
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      if (authProvider.currentUser != null) {
+        print('Loading courses for instructor: ${authProvider.currentUser!.uid}');
+        final courses = await FirebaseService.getInstructorCourses(authProvider.currentUser!.uid);
+        print('Courses loaded: ${courses.length}');
+        if (mounted) {
+          setState(() {
+            _firebaseCourses = courses;
+            _isLoadingCourses = false;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading courses: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingCourses = false;
+        });
+      }
+    }
+  }
+
+  void _addNewCourse() async {
+    final result = await Navigator.push(
       context,
-      RouteManager.getCourseDetailRoute(),
-      arguments: course,
+      MaterialPageRoute(builder: (context) => const CreateCourseScreen()),
     );
+    
+    // Reload courses if a new course was created
+    if (result == true) {
+      _loadInstructorCourses();
+    }
   }
 
   void _searchCourses() {
@@ -86,9 +114,11 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
+    return RoleGuard(
+      requiredRole: 'instructor',
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
@@ -111,21 +141,31 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              // Welcome Card for Instructor
-              _buildWelcomeCard(),
-              const SizedBox(height: 16),
-              // Courses List
-              ..._courses.map((course) => _buildCourseCard(course)),
-            ],
-          ),
-        ),
+      body: _isLoadingCourses
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadInstructorCourses,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      // Welcome Card for Instructor
+                      _buildWelcomeCard(),
+                      const SizedBox(height: 16),
+                      // Courses List
+                      if (_firebaseCourses.isEmpty)
+                        _buildEmptyState()
+                      else
+                        ..._firebaseCourses.map((course) => _buildFirebaseCourseCard(course)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        floatingActionButton: _buildCustomFloatingActionButton(),
       ),
-      floatingActionButton: _buildCustomFloatingActionButton(),
     );
   }
 
@@ -148,7 +188,7 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Welcome back, Dr. Sarah Mitchell! 👋',
+            _isLoadingName ? 'Welcome back! 👋' : 'Welcome back, $_instructorName! 👋',
             style: GoogleFonts.inter(
               color: const Color(0xFF1F2937),
               fontSize: 18,
@@ -157,7 +197,7 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'You are teaching ${_courses.length} course${_courses.length == 1 ? '' : 's'} this semester',
+            'You are teaching ${_firebaseCourses.length} course${_firebaseCourses.length == 1 ? '' : 's'} this semester',
             style: GoogleFonts.inter(
               color: const Color(0xFF6B7280),
               fontSize: 14,
@@ -212,118 +252,138 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
     );
   }
 
-  Widget _buildCourseCard(Course course) {
+  Widget _buildEmptyState() {
     return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+      padding: const EdgeInsets.all(40),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.school_outlined,
+            size: 64,
+            color: Colors.grey.shade400,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No Courses Yet',
+            style: GoogleFonts.inter(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF1F2937),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Tap the + button to create your first course',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: const Color(0xFF6B7280),
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
-      child: Row(
+    );
+  }
+
+  Widget _buildFirebaseCourseCard(Map<String, dynamic> courseData) {
+    final colors = [
+      [const Color(0xFF4E9FEC), const Color(0xFF2563EB)],
+      [const Color(0xFF5CD6C0), const Color(0xFF16A34A)],
+      [const Color(0xFFC084FC), const Color(0xFF9333EA)],
+      [const Color(0xFF818CF8), const Color(0xFF4F46E5)],
+      [const Color(0xFFF472B6), const Color(0xFFEC4899)],
+    ];
+    final colorIndex = courseData['title'].toString().length % colors.length;
+    final gradient = colors[colorIndex];
+
+    return GestureDetector(
+      onTap: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => InstructorCourseDetailScreen(courseData: courseData),
+          ),
+        );
+        if (result == true) {
+          _loadInstructorCourses();
+        }
+      },
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Course Icon
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              gradient: LinearGradient(
-                colors: course.gradient,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: gradient,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.book,
+                  color: Colors.white,
+                  size: 24,
+                ),
               ),
-            ),
-            child: Icon(
-              course.icon,
-              color: Colors.white,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Course Details
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            course.name,
-                            style: GoogleFonts.inter(
-                              color: const Color(0xFF111827),
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Taught by ${course.instructor}',
-                            style: GoogleFonts.inter(
-                              color: const Color(0xFF6B7280),
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  course.recentActivity,
-                  style: GoogleFonts.inter(
-                    color: const Color(0xFF374151),
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
                     Text(
-                      course.timeAgo,
+                      courseData['title'] ?? 'Untitled Course',
                       style: GoogleFonts.inter(
-                        color: const Color(0xFF9CA3AF),
-                        fontSize: 12,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF1F2937),
                       ),
                     ),
-                    TextButton(
-                      onPressed: () => _viewCourseDetails(course),
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: Text(
-                        'Manage Course',
-                        style: GoogleFonts.inter(
-                          color: course.color,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'OTP: ${courseData['otp'] ?? 'N/A'}',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: const Color(0xFF6B7280),
                       ),
                     ),
                   ],
                 ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            courseData['description'] ?? 'No description',
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: const Color(0xFF6B7280),
             ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
+      ),
       ),
     );
   }

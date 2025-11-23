@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../widgets/course_model.dart';
-import 'course_enrollment_screen.dart';
+import 'join_course_screen.dart';
 import 'course_detail_screen.dart';
+import 'create_course_screen.dart';
 import '../utils/theme_provider.dart';
+import '../services/auth_provider.dart';
+import '../services/firebase_service.dart';
 
 class CoursesScreen extends StatefulWidget {
   const CoursesScreen({super.key});
@@ -14,62 +17,88 @@ class CoursesScreen extends StatefulWidget {
 }
 
 class _CoursesScreenState extends State<CoursesScreen> {
-  final List<Course> _courses = [
-    Course(
-      id: '1',
-      name: 'Introduction to Programming',
-      instructor: 'Dr. Sarah Mitchell',
-      color: const Color(0xFF4E9FEC),
-      gradient: const [Color(0xFF4E9FEC), Color(0xFF2563EB)],
-      icon: Icons.code,
-      recentActivity: 'New Quiz available: Week 3 Assessment',
-      timeAgo: '2 hours ago',
-      assignmentsDue: 2,
-      unreadMessages: 3,
-    ),
-    Course(
-      id: '2',
-      name: 'Calculus I',
-      instructor: 'Prof. James Wilson',
-      color: const Color(0xFF5CD6C0),
-      gradient: const [Color(0xFF5CD6C0), Color(0xFF16A34A)],
-      icon: Icons.calculate,
-      recentActivity: 'Assignment 4 feedback posted',
-      timeAgo: '1 day ago',
-      assignmentsDue: 1,
-      unreadMessages: 0,
-    ),
-    Course(
-      id: '3',
-      name: 'Physics II',
-      instructor: 'Dr. Emily Chen',
-      color: const Color(0xFFC084FC),
-      gradient: const [Color(0xFFC084FC), Color(0xFF9333EA)],
-      icon: Icons.science,
-      recentActivity: 'Lab report due tomorrow',
-      timeAgo: '3 hours ago',
-      assignmentsDue: 1,
-      unreadMessages: 5,
-    ),
-    Course(
-      id: '4',
-      name: 'Spanish Literature',
-      instructor: 'Prof. Maria Rodriguez',
-      color: const Color(0xFF818CF8),
-      gradient: const [Color(0xFF818CF8), Color(0xFF4F46E5)],
-      icon: Icons.menu_book,
-      recentActivity: 'Discussion forum: Cervantes analysis',
-      timeAgo: '2 days ago',
-      assignmentsDue: 0,
-      unreadMessages: 2,
-    ),
-  ];
+  List<Course> _courses = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEnrolledCourses();
+  }
+
+  Future<void> _loadEnrolledCourses() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      final currentUser = FirebaseService.getCurrentUser();
+      if (currentUser == null) {
+        throw Exception('User not logged in');
+      }
+
+      print('Loading enrolled courses for student: ${currentUser.uid}');
+      final coursesData = await FirebaseService.getStudentEnrolledCourses(currentUser.uid);
+      print('Loaded ${coursesData.length} courses from Firebase');
+      
+      setState(() {
+        _courses = coursesData.map((courseData) {
+          // Use different colors for different courses
+          final colors = [
+            {'color': const Color(0xFF4E9FEC), 'gradient': [const Color(0xFF4E9FEC), const Color(0xFF2563EB)], 'icon': Icons.code},
+            {'color': const Color(0xFF5CD6C0), 'gradient': [const Color(0xFF5CD6C0), const Color(0xFF16A34A)], 'icon': Icons.calculate},
+            {'color': const Color(0xFFC084FC), 'gradient': [const Color(0xFFC084FC), const Color(0xFF9333EA)], 'icon': Icons.science},
+            {'color': const Color(0xFF818CF8), 'gradient': [const Color(0xFF818CF8), const Color(0xFF4F46E5)], 'icon': Icons.menu_book},
+          ];
+          final colorIndex = _courses.length % colors.length;
+          final colorConfig = colors[colorIndex];
+
+          return Course(
+            id: courseData['id'] ?? '',
+            name: courseData['title'] ?? 'Unnamed Course',
+            instructor: courseData['instructorName'] ?? 'Unknown Instructor',
+            color: colorConfig['color'] as Color,
+            gradient: colorConfig['gradient'] as List<Color>,
+            icon: colorConfig['icon'] as IconData,
+            recentActivity: 'No recent activity',
+            timeAgo: '',
+            assignmentsDue: 0,
+            unreadMessages: 0,
+          );
+        }).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading courses: $e');
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading courses: $e')),
+        );
+      }
+    }
+  }
 
   void _addNewCourse() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const CourseEnrollmentScreen()),
-    );
+    // Check if user is instructor
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userType = authProvider.userType;
+
+    if (userType == 'instructor') {
+      // Navigate to Create Course screen for instructors
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const CreateCourseScreen()),
+      );
+    } else {
+      // Navigate to Join Course screen for students
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const JoinCourseScreen()),
+      );
+    }
   }
 
   void _viewCourseDetails(Course course) {
@@ -137,17 +166,59 @@ class _CoursesScreenState extends State<CoursesScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              // Courses List Only - No header card
-              ..._courses.map((course) => _buildCourseCard(course)),
-            ],
-          ),
-        ),
-      ),
+      body: _isLoading
+          ? Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  Theme.of(context).primaryColor,
+                ),
+              ),
+            )
+          : _courses.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.school_outlined,
+                        size: 64,
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No enrolled courses yet',
+                        style: GoogleFonts.inter(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Tap the + button to join a course',
+                        style: GoogleFonts.inter(
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: _loadEnrolledCourses,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          // Courses List Only - No header card
+                          ..._courses.map((course) => _buildCourseCard(course)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
       floatingActionButton: _buildCustomFloatingActionButton(themeProvider),
     );
   }

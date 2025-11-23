@@ -1,0 +1,178 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is an instructor
+    function isInstructor() {
+      return request.auth != null && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userType == 'instructor';
+    }
+    
+    // Helper function to check if user is a student
+    function isStudent() {
+      return request.auth != null && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userType == 'student';
+    }
+    
+    // Helper function to check if user is course instructor
+    function isCourseInstructor(courseId) {
+      return request.auth != null && 
+             get(/databases/$(database)/documents/courses/$(courseId)).data.instructorId == request.auth.uid;
+    }
+    
+    // User document rules
+    match /users/{userId} {
+      // All authenticated users can read basic profile info (needed for Q&A, attendance, etc)
+      // This allows students and instructors to see each other's names in Q&A wall, attendance records, etc.
+      allow read: if request.auth != null;
+      
+      // Users can create their profile during registration
+      allow create: if request.auth != null && request.auth.uid == userId;
+      
+      // Users can update their own profile but cannot change userType after creation
+      // Instructors can also update enrolledCourses array for enrollment management
+      allow update: if (request.auth != null && 
+                       request.auth.uid == userId &&
+                       request.resource.data.userType == resource.data.userType) ||
+                      (isInstructor() &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['enrolledCourses']) &&
+                       resource.data.userType == 'student');
+      
+      // Users cannot delete their profile
+      allow delete: if false;
+      
+      // Allow users to read/write their own subcollections
+      match /{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    
+    // Course rules
+    match /courses/{courseId} {
+      // All authenticated users can read courses
+      allow read: if request.auth != null;
+      
+      // Only instructors can create courses with their own instructorId
+      allow create: if isInstructor() && 
+                      request.resource.data.instructorId == request.auth.uid &&
+                      request.resource.data.isActive == true;
+      
+      // Only the course instructor can update their courses
+      allow update: if isInstructor() && 
+                      resource.data.instructorId == request.auth.uid;
+      
+      // Only the course instructor can delete their courses
+      allow delete: if isInstructor() && 
+                      resource.data.instructorId == request.auth.uid;
+      
+      // Enrollment requests subcollection
+      match /enrollmentRequests/{requestId} {
+        // Only students can create enrollment requests
+        allow create: if isStudent() && request.auth.uid == requestId;
+        
+        // Students can read their own requests, instructors can read all requests for their course
+        allow read: if request.auth != null && 
+                      (request.auth.uid == requestId || 
+                       (isInstructor() && get(/databases/$(database)/documents/courses/$(courseId)).data.instructorId == request.auth.uid));
+        
+        // Course instructor can update any enrollment requests
+        // Students can update their own rejected or removed requests back to pending
+        allow update: if (isInstructor() && get(/databases/$(database)/documents/courses/$(courseId)).data.instructorId == request.auth.uid) ||
+                        (isStudent() && 
+                         request.auth.uid == requestId && 
+                         (resource.data.status == 'rejected' || resource.data.status == 'removed') &&
+                         request.resource.data.status == 'pending');
+        
+        // Allow delete for instructors and students (for their rejected/removed requests)
+        allow delete: if (isInstructor() && get(/databases/$(database)/documents/courses/$(courseId)).data.instructorId == request.auth.uid) ||
+                        (isStudent() && 
+                         request.auth.uid == requestId && 
+                         (resource.data.status == 'rejected' || resource.data.status == 'removed'));
+      }
+      
+      // Attendance subcollection - each course has its own attendance records
+      match /attendance/{sessionId} {
+        // Students can read active attendance sessions to verify their attendance
+        allow read: if request.auth != null;
+        
+        // Only instructors can create attendance sessions
+        allow create: if isInstructor();
+        
+        // Students can update to add themselves to verifiedStudents array and/or studentPhotos map
+        // Allow updating these fields separately or together
+        // Instructors can update to close the session or manage attendance
+        allow update: if (isStudent() && 
+                         request.resource.data.diff(resource.data).affectedKeys().hasAny(['verifiedStudents', 'studentPhotos']) &&
+                         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['otp', 'createdAt', 'expiresAt', 'isActive'])) ||
+                        isInstructor();
+        
+        // Only instructors can delete attendance sessions
+        allow delete: if isInstructor();
+      }
+      
+      // Pop-up questions subcollection
+      match /popupQuestions/{questionId} {
+        allow read: if request.auth != null;
+        allow create, update, delete: if isInstructor() && 
+                                        get(/databases/$(database)/documents/courses/$(courseId)).data.instructorId == request.auth.uid;
+      }
+      
+      // Quizzes subcollection
+      match /quizzes/{quizId} {
+        allow read: if request.auth != null;
+        allow create, update, delete: if isInstructor() && 
+                                        get(/databases/$(database)/documents/courses/$(courseId)).data.instructorId == request.auth.uid;
+      }
+    }
+    
+    // Global attendance rules (if needed for old structure - can be removed later)
+    match /attendance/{attendanceId} {
+      allow read: if request.auth != null;
+      allow create: if isInstructor();
+      allow update, delete: if isInstructor();
+    }
+    
+    // Quiz rules (if needed)
+    match /quizzes/{quizId} {
+      allow read: if request.auth != null;
+      allow create: if isInstructor();
+      allow update, delete: if isInstructor();
+    }
+    
+    // Q&A Wall rules - course-specific questions
+    match /courses/{courseId}/questions/{questionId} {
+      // Anyone enrolled in the course or the instructor can read questions
+      allow read: if request.auth != null && 
+                    (get(/databases/$(database)/documents/courses/$(courseId)).data.enrolledStudents.hasAny([request.auth.uid]) ||
+                     get(/databases/$(database)/documents/courses/$(courseId)).data.instructorId == request.auth.uid);
+      
+      // Enrolled students and instructor can create questions
+      allow create: if request.auth != null && 
+                      request.resource.data.authorId == request.auth.uid &&
+                      (get(/databases/$(database)/documents/courses/$(courseId)).data.enrolledStudents.hasAny([request.auth.uid]) ||
+                       get(/databases/$(database)/documents/courses/$(courseId)).data.instructorId == request.auth.uid);
+      
+      // Only author can update/delete their own questions
+      allow update, delete: if request.auth != null && 
+                              resource.data.authorId == request.auth.uid;
+      
+      // Replies subcollection
+      match /replies/{replyId} {
+        // Same read access as questions
+        allow read: if request.auth != null && 
+                      (get(/databases/$(database)/documents/courses/$(courseId)).data.enrolledStudents.hasAny([request.auth.uid]) ||
+                       get(/databases/$(database)/documents/courses/$(courseId)).data.instructorId == request.auth.uid);
+        
+        // Enrolled students and instructor can create replies
+        allow create: if request.auth != null && 
+                        request.resource.data.authorId == request.auth.uid &&
+                        (get(/databases/$(database)/documents/courses/$(courseId)).data.enrolledStudents.hasAny([request.auth.uid]) ||
+                         get(/databases/$(database)/documents/courses/$(courseId)).data.instructorId == request.auth.uid);
+        
+        // Only author can update/delete their own replies
+        allow update, delete: if request.auth != null && 
+                                resource.data.authorId == request.auth.uid;
+      }
+    }
+  }
+}

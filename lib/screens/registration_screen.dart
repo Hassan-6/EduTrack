@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../utils/route_manager.dart';
 import '../utils/theme_provider.dart';
 import '../services/auth_provider.dart';
+import '../services/email_history_service.dart';
 import 'forgot_password_screen.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -20,19 +21,48 @@ class _AuthScreenState extends State<AuthScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _rollNumberController = TextEditingController();
   
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
 
   final _formKey = GlobalKey<FormState>();
+  
+  // Email autocomplete
+  List<String> _emailSuggestions = [];
+  bool _showEmailSuggestions = false;
+  final LayerLink _layerLink = LayerLink();
+  OverlayEntry? _overlayEntry;
+  bool _isSelectingSuggestion = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEmailHistory();
+    _emailController.addListener(_onEmailChanged);
+  }
+
+  Future<void> _loadEmailHistory() async {
+    final emails = await EmailHistoryService.getEmailHistory();
+    setState(() {
+      _emailSuggestions = emails;
+    });
+  }
+
+  void _onEmailChanged() {
+    _updateEmailSuggestions();
+  }
 
   @override
   void dispose() {
+    _emailController.removeListener(_onEmailChanged);
+    _removeOverlay();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _nameController.dispose();
+    _rollNumberController.dispose();
     super.dispose();
   }
 
@@ -43,6 +73,7 @@ class _AuthScreenState extends State<AuthScreen> {
       _confirmPasswordController.clear();
       if (_isLogin) {
         _nameController.clear();
+        _rollNumberController.clear();
       }
     });
   }
@@ -51,6 +82,114 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() {
       _isInstructor = !_isInstructor;
     });
+  }
+
+  void _updateEmailSuggestions() async {
+    if (_isSelectingSuggestion) return;
+    
+    final query = _emailController.text.trim();
+    
+    final suggestions = await EmailHistoryService.getSuggestions(query);
+    if (suggestions.isNotEmpty && mounted) {
+      setState(() {
+        _emailSuggestions = suggestions;
+      });
+      _showOverlay();
+    } else {
+      _removeOverlay();
+    }
+  }
+
+  void _showOverlay() {
+    _removeOverlay();
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) => GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () {
+          _removeOverlay();
+        },
+        child: Stack(
+          children: [
+            Positioned(
+              width: MediaQuery.of(context).size.width - 48,
+              child: CompositedTransformFollower(
+                link: _layerLink,
+                showWhenUnlinked: false,
+                offset: const Offset(0, 60),
+                child: Material(
+                  elevation: 8,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    constraints: const BoxConstraints(maxHeight: 200),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade400, width: 1),
+                    ),
+                    child: ListView.builder(
+                      padding: EdgeInsets.zero,
+                      shrinkWrap: true,
+                      itemCount: _emailSuggestions.length,
+                      itemBuilder: (context, index) {
+                        final email = _emailSuggestions[index];
+                        return InkWell(
+                          onTap: () {
+                            _isSelectingSuggestion = true;
+                            _emailController.text = email;
+                            _emailController.selection = TextSelection.fromPosition(
+                              TextPosition(offset: email.length),
+                            );
+                            _removeOverlay();
+                            FocusScope.of(context).unfocus();
+                            Future.delayed(const Duration(milliseconds: 100), () {
+                              _isSelectingSuggestion = false;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              border: Border(
+                                bottom: index < _emailSuggestions.length - 1
+                                    ? BorderSide(color: Colors.grey.shade200)
+                                    : BorderSide.none,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.history, size: 20, color: Colors.grey.shade600),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    email,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      color: Colors.black87,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _removeOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
   }
 
   void _togglePasswordVisibility() {
@@ -100,15 +239,18 @@ class _AuthScreenState extends State<AuthScreen> {
   void _login() async {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final success = await authProvider.signIn(
+      final result = await authProvider.signIn(
         _emailController.text.trim(),
         _passwordController.text,
         _isInstructor,
       );
 
-      if (success) {
-        if (!mounted) return;
+      if (!mounted) return;
 
+      if (result['success'] == true) {
+        // Save email to history on successful login
+        await EmailHistoryService.saveEmail(_emailController.text.trim());
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${_isInstructor ? 'Instructor' : 'Student'} login successful!'),
@@ -116,20 +258,20 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
         );
 
-        RouteManager.setUserType(_isInstructor ? 'instructor' : 'student');
+        RouteManager.setUserType(authProvider.userType ?? (_isInstructor ? 'instructor' : 'student'));
 
-        if (_isInstructor) {
+        // Route based on actual stored role
+        if (authProvider.userType == 'instructor') {
           Navigator.pushReplacementNamed(context, '/ins_main_menu');
         } else {
           Navigator.pushReplacementNamed(context, '/main_menu');
         }
       } else {
-        if (!mounted) return;
-
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Login failed. Please check your credentials.'),
+          SnackBar(
+            content: Text(result['error'] ?? 'Login failed. Please check your credentials.'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -153,6 +295,7 @@ class _AuthScreenState extends State<AuthScreen> {
         _passwordController.text,
         _nameController.text.trim(),
         _isInstructor,
+        rollNumber: _isInstructor ? null : _rollNumberController.text.trim(),
       );
 
       if (success) {
@@ -229,57 +372,71 @@ class _AuthScreenState extends State<AuthScreen> {
     return null;
   }
 
+  String? _validateRollNumber(String? value) {
+    if (!_isLogin && !_isInstructor && (value == null || value.isEmpty)) {
+      return 'Please enter your roll number';
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background, // THEME: Dynamic background
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              children: [
-                _buildHeaderSection(themeProvider),
-                const SizedBox(height: 40),
+    return GestureDetector(
+      onTap: () {
+        // Dismiss keyboard and overlay when tapping outside
+        FocusScope.of(context).unfocus();
+        _removeOverlay();
+      },
+      child: Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.background, // THEME: Dynamic background
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  _buildHeaderSection(themeProvider),
+                  const SizedBox(height: 40),
 
-                Text(
-                  _isLogin ? 'Welcome Back!' : 'Create Account',
-                  style: GoogleFonts.inter(
-                    color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
-                    fontSize: 24,
-                    fontWeight: FontWeight.w600,
+                  Text(
+                    _isLogin ? 'Welcome Back!' : 'Create Account',
+                    style: GoogleFonts.inter(
+                      color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
+                      fontSize: 24,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _isLogin 
-                      ? 'Sign in to continue your ${_isInstructor ? 'teaching' : 'learning'} journey'
-                      : 'Join EduTrack as ${_isInstructor ? 'an instructor' : 'a student'}',
-                  style: GoogleFonts.inter(
-                    color: Theme.of(context).colorScheme.onSurface, // THEME: Dynamic text
-                    fontSize: 14,
+                  const SizedBox(height: 8),
+                  Text(
+                    _isLogin 
+                        ? 'Sign in to continue your ${_isInstructor ? 'teaching' : 'learning'} journey'
+                        : 'Join EduTrack as ${_isInstructor ? 'an instructor' : 'a student'}',
+                    style: GoogleFonts.inter(
+                      color: Theme.of(context).colorScheme.onSurface, // THEME: Dynamic text
+                      fontSize: 14,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                _buildUserTypeToggle(themeProvider),
-                const SizedBox(height: 16),
+                  _buildUserTypeToggle(themeProvider),
+                  const SizedBox(height: 16),
 
-                _buildFormFields(),
-                const SizedBox(height: 24),
+                  _buildFormFields(),
+                  const SizedBox(height: 24),
 
-                _buildActionButtons(themeProvider),
-                const SizedBox(height: 24),
+                  _buildActionButtons(themeProvider),
+                  const SizedBox(height: 24),
 
-                _buildSkipLoginButtons(themeProvider),
-                const SizedBox(height: 16),
+                  _buildSkipLoginButtons(themeProvider),
+                  const SizedBox(height: 16),
 
-                _buildAuthModeSwitch(),
-                const SizedBox(height: 20),
-              ],
+                  _buildAuthModeSwitch(),
+                  const SizedBox(height: 20),
+                ],
+              ),
             ),
           ),
         ),
@@ -449,15 +606,56 @@ class _AuthScreenState extends State<AuthScreen> {
             ),
             const SizedBox(height: 16),
           ],
+          if (!_isLogin && !_isInstructor) ...[
+            TextFormField(
+              controller: _rollNumberController,
+              validator: _validateRollNumber,
+              decoration: InputDecoration(
+                labelText: 'Roll Number',
+                labelStyle: GoogleFonts.inter(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontWeight: FontWeight.w500,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Theme.of(context).dividerColor),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
+                ),
+                filled: true,
+                fillColor: Theme.of(context).colorScheme.surface,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              ),
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Theme.of(context).colorScheme.onBackground,
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
 
-          TextFormField(
-            controller: _emailController,
-            validator: _validateEmail,
-            keyboardType: TextInputType.emailAddress,
-            decoration: InputDecoration(
-              labelText: 'Email Address',
-              labelStyle: GoogleFonts.inter(
-                color: Theme.of(context).colorScheme.onSurface, // THEME: Dynamic text
+          CompositedTransformTarget(
+            link: _layerLink,
+            child: TextFormField(
+              controller: _emailController,
+              validator: _validateEmail,
+              keyboardType: TextInputType.emailAddress,
+              onTap: () {
+                if (_emailSuggestions.isNotEmpty) {
+                  _showOverlay();
+                }
+              },
+              onChanged: (value) {
+                // Trigger suggestions update on every character change
+                _updateEmailSuggestions();
+              },
+              decoration: InputDecoration(
+                labelText: 'Email Address',
+                labelStyle: GoogleFonts.inter(
+                  color: Theme.of(context).colorScheme.onSurface, // THEME: Dynamic text
                 fontWeight: FontWeight.w500,
               ),
               border: OutlineInputBorder(
@@ -476,6 +674,7 @@ class _AuthScreenState extends State<AuthScreen> {
               fontSize: 16,
               fontWeight: FontWeight.w500,
               color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
+            ),
             ),
           ),
           const SizedBox(height: 16),
@@ -621,56 +820,6 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
             ),
           ),
-          const SizedBox(height: 16),
-
-          Row(
-            children: [
-              Expanded(
-                child: Divider(color: Theme.of(context).dividerColor), // THEME: Dynamic divider
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'Or continue with',
-                  style: GoogleFonts.inter(
-                    color: Theme.of(context).colorScheme.onSurface, // THEME: Dynamic text
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Divider(color: Theme.of(context).dividerColor), // THEME: Dynamic divider
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildSocialButton(
-                icon: Icons.g_mobiledata,
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Google sign in would go here'),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 16),
-              _buildSocialButton(
-                icon: Icons.facebook,
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Facebook sign in would go here'),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -742,35 +891,6 @@ class _AuthScreenState extends State<AuthScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildSocialButton({required IconData icon, required VoidCallback onPressed}) {
-    return Container(
-      width: 56,
-      height: 56,
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor, // THEME: Dynamic card
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).dividerColor), // THEME: Dynamic border
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).brightness == Brightness.dark 
-                ? Colors.black.withOpacity(0.3) 
-                : Colors.grey.shade200, // THEME: Adaptive shadow
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: IconButton(
-        onPressed: onPressed,
-        icon: Icon(
-          icon,
-          size: 24,
-          color: Theme.of(context).colorScheme.onSurface, // THEME: Dynamic icon
-        ),
       ),
     );
   }

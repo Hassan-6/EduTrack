@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../utils/route_manager.dart';
+import '../services/auth_provider.dart';
+import '../services/firebase_service.dart';
 
 class InstructorMainMenuScreen extends StatefulWidget {
   const InstructorMainMenuScreen({Key? key}) : super(key: key);
@@ -14,6 +17,37 @@ class _InstructorMainMenuScreenState extends State<InstructorMainMenuScreen> {
   int _currentBottomNavIndex = 0; // Home is active
   bool _gradeAssignmentsCompleted = false;
   bool _prepareLectureCompleted = true;
+  String _instructorName = 'Instructor';
+  bool _isLoadingName = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInstructorName();
+  }
+
+  Future<void> _loadInstructorName() async {
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      if (authProvider.currentUser != null) {
+        final userProfile = await FirebaseService.getUserProfile(authProvider.currentUser!.uid);
+        if (userProfile != null && mounted) {
+          setState(() {
+            _instructorName = userProfile['name'] ?? 'Instructor';
+            _isLoadingName = false;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading instructor name: $e');
+      if (mounted) {
+        setState(() {
+          _instructorName = 'Instructor';
+          _isLoadingName = false;
+        });
+      }
+    }
+  }
 
   void _toggleGradeAssignments() {
     setState(() {
@@ -156,7 +190,7 @@ class _InstructorMainMenuScreenState extends State<InstructorMainMenuScreen> {
         children: [
           const SizedBox(height: 16),
           Text(
-            'Good Morning, Sir Oneeb! 👋',
+            _isLoadingName ? 'Good Morning! 👋' : 'Good Morning, $_instructorName! 👋',
             style: GoogleFonts.inter(
               color: const Color(0xFF374151),
               fontSize: 16,

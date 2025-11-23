@@ -1,8 +1,12 @@
 import 'dart:math';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../utils/route_manager.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../services/firebase_service.dart';
+import '../services/auth_provider.dart';
 
 class InsAttendanceScreen extends StatefulWidget {
   const InsAttendanceScreen({super.key});
@@ -17,19 +21,80 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
   int _timeRemaining = 0;
   bool _isOtpGenerated = false;
   bool _isAttendanceRecorded = false;
-  String _selectedCourse = 'CSCS 100 D';
+  String? _selectedCourseId;
   DateTime _selectedDate = DateTime.now();
-  int _totalStudents = 30;
+  int _totalStudents = 0;
   int _verifiedAttendance = 0;
+  String? _currentSessionId;
+  StreamSubscription? _attendanceStreamSubscription;
 
-  final List<String> _courses = [
-    'CSCS 100 D',
-    'MATH 101 A',
-    'PHYS 102 B',
-    'CHEM 103 C'
-  ];
+  List<Map<String, dynamic>> _courses = [];
+  bool _isLoadingCourses = true;
 
   final Random _random = Random();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInstructorCourses();
+  }
+
+  @override
+  void dispose() {
+    _attendanceStreamSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadInstructorCourses() async {
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      if (authProvider.currentUser == null) {
+        print('No current user found');
+        setState(() {
+          _isLoadingCourses = false;
+        });
+        return;
+      }
+
+      print('Loading courses for instructor: ${authProvider.currentUser!.uid}');
+      final courses = await FirebaseService.getInstructorCourses(authProvider.currentUser!.uid);
+      
+      setState(() {
+        _courses = courses;
+        if (_courses.isNotEmpty) {
+          _selectedCourseId = _courses[0]['id'];
+          _loadCourseStudentCount(_selectedCourseId!);
+        }
+        _isLoadingCourses = false;
+      });
+      
+      print('Loaded ${_courses.length} courses');
+    } catch (e) {
+      print('Error loading instructor courses: $e');
+      setState(() {
+        _isLoadingCourses = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading courses: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _loadCourseStudentCount(String courseId) async {
+    try {
+      final count = await FirebaseService.getCourseEnrolledStudentsCount(courseId);
+      setState(() {
+        _totalStudents = count;
+      });
+    } catch (e) {
+      print('Error loading student count: $e');
+    }
+  }
 
   void _onBottomNavTapped(int index) {
     setState(() {
@@ -56,22 +121,53 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
     Navigator.pushReplacementNamed(context, RouteManager.getMainMenuRoute());
   }
 
-  void _generateOtp() {
-    setState(() {
-      _isOtpGenerated = true;
-      _isAttendanceRecorded = false;
-      _timeRemaining = 120; // 2 minutes in seconds
-      _verifiedAttendance = 0; // Reset when new OTP is generated
+  Future<void> _generateOtp() async {
+    if (_selectedCourseId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a course first'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    try {
+      // Generate random 6-digit OTP
+      final otp = _generateRandomOtp();
       
-      // Generate random 6-digit OTP with different numbers
-      _generatedOtp = _generateRandomOtp();
-      
+      // Create attendance session in Firebase
+      final sessionId = await FirebaseService.createAttendanceSession(
+        courseId: _selectedCourseId!,
+        otp: otp,
+        durationMinutes: 2,
+      );
+
+      setState(() {
+        _generatedOtp = otp;
+        _currentSessionId = sessionId;
+        _isOtpGenerated = true;
+        _isAttendanceRecorded = false;
+        _timeRemaining = 120; // 2 minutes in seconds
+        _verifiedAttendance = 0;
+      });
+
       // Start countdown timer
       _startCountdown();
       
-      // Start simulating attendance updates
-      _simulateAttendanceUpdates();
-    });
+      // Start listening to real-time attendance updates
+      _listenToAttendanceUpdates();
+      
+      print('OTP generated: $otp for course: $_selectedCourseId');
+    } catch (e) {
+      print('Error generating OTP: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error generating OTP: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   String _generateRandomOtp() {
@@ -111,33 +207,60 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
     }
   }
 
-  void _recordAttendance() {
-    setState(() {
-      _isAttendanceRecorded = true;
-      _isOtpGenerated = false; // Stop OTP when attendance is recorded
-    });
-    
-    // Simulate recording attendance
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Attendance recorded successfully!'),
-        backgroundColor: Colors.green,
-      ),
-    );
+  Future<void> _recordAttendance() async {
+    if (_selectedCourseId == null || _currentSessionId == null) return;
+
+    try {
+      // Close attendance session in Firebase
+      await FirebaseService.closeAttendanceSession(
+        courseId: _selectedCourseId!,
+        sessionId: _currentSessionId!,
+      );
+
+      setState(() {
+        _isAttendanceRecorded = true;
+        _isOtpGenerated = false;
+      });
+
+      _attendanceStreamSubscription?.cancel();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Attendance recorded! $_verifiedAttendance/$_totalStudents students verified'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      print('Error recording attendance: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error recording attendance: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
-  // Simulate real-time attendance updates
-  void _simulateAttendanceUpdates() {
-    if (_isOtpGenerated && _timeRemaining > 0 && _verifiedAttendance < _totalStudents) {
-      Future.delayed(Duration(seconds: 1 + _random.nextInt(3)), () {
-        if (_isOtpGenerated && _verifiedAttendance < _totalStudents) {
-          setState(() {
-            _verifiedAttendance++;
-          });
-          _simulateAttendanceUpdates();
-        }
-      });
-    }
+  // Listen to real-time attendance updates from Firebase
+  void _listenToAttendanceUpdates() {
+    if (_selectedCourseId == null || _currentSessionId == null) return;
+
+    _attendanceStreamSubscription?.cancel();
+    _attendanceStreamSubscription = FirebaseService.getAttendanceSessionStream(
+      courseId: _selectedCourseId!,
+      sessionId: _currentSessionId!,
+    ).listen((snapshot) {
+      if (!snapshot.exists) return;
+      
+      final data = snapshot.data() as Map<String, dynamic>;
+      final verifiedStudents = data['verifiedStudents'] as List<dynamic>? ?? [];
+      
+      if (mounted) {
+        setState(() {
+          _verifiedAttendance = verifiedStudents.length;
+        });
+      }
+    });
   }
 
   String _formatTime(int seconds) {
@@ -386,37 +509,60 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
                     Container(
                       height: 50,
                       decoration: BoxDecoration(
-                        color: const Color(0x7F9CA3AF),
+                        color: Colors.white,
                         border: Border.all(color: const Color(0xFFE5E7EB)),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _selectedCourse,
-                          isExpanded: true,
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              _selectedCourse = newValue!;
-                            });
-                          },
-                          items: _courses.map((String course) {
-                            return DropdownMenuItem<String>(
-                              value: course,
+                      child: _isLoadingCourses
+                          ? const Center(
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
-                                child: Text(
-                                  course,
-                                  style: GoogleFonts.inter(
-                                    color: const Color(0xFF1F2937),
-                                    fontSize: 14,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                                padding: EdgeInsets.all(12.0),
+                                child: CircularProgressIndicator(),
                               ),
-                            );
-                          }).toList(),
-                        ),
-                      ),
+                            )
+                          : _courses.isEmpty
+                              ? Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12.0),
+                                    child: Text(
+                                      'No courses found',
+                                      style: GoogleFonts.inter(
+                                        color: const Color(0xFF6B7280),
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    value: _selectedCourseId,
+                                    isExpanded: true,
+                                    dropdownColor: Colors.white,
+                                    onChanged: (String? newValue) {
+                                      setState(() {
+                                        _selectedCourseId = newValue!;
+                                        _loadCourseStudentCount(newValue);
+                                      });
+                                    },
+                                    items: _courses.map((course) {
+                                      return DropdownMenuItem<String>(
+                                        value: course['id'] as String,
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                                          child: Text(
+                                            course['title'] ?? 'Unnamed Course',
+                                            style: GoogleFonts.inter(
+                                              color: Colors.black87,
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
                     ),
                   ],
                 ),

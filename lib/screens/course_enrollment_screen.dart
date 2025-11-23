@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../utils/theme_provider.dart';
@@ -16,8 +17,6 @@ class _CourseEnrollmentScreenState extends State<CourseEnrollmentScreen> {
   bool _showOtpInput = false;
   
   final TextEditingController _otpController = TextEditingController();
-  final List<TextEditingController> _otpDigitControllers = List.generate(6, (index) => TextEditingController());
-  final List<FocusNode> _otpFocusNodes = List.generate(6, (index) => FocusNode());
   
   // Dummy course data that would be fetched after OTP verification
   Map<String, dynamic>? _courseData;
@@ -161,51 +160,8 @@ class _CourseEnrollmentScreenState extends State<CourseEnrollmentScreen> {
     }
   }
 
-  void _restartProcess() {
-    setState(() {
-      _otpVerified = false;
-      _showOtpInput = false;
-      _courseData = null;
-      _otpController.clear();
-      for (var controller in _otpDigitControllers) {
-        controller.clear();
-      }
-    });
-  }
-
-  void _handleOtpInput(String value, int index) {
-    if (value.length == 1 && index < 5) {
-      _otpFocusNodes[index + 1].requestFocus();
-    } else if (value.isEmpty && index > 0) {
-      _otpFocusNodes[index - 1].requestFocus();
-    }
-    
-    // Update the main OTP controller
-    _otpController.text = _otpDigitControllers.map((c) => c.text).join();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    
-    // Add listeners to OTP digit controllers
-    for (int i = 0; i < _otpDigitControllers.length; i++) {
-      _otpDigitControllers[i].addListener(() {
-        if (_otpDigitControllers[i].text.isNotEmpty && i < 5) {
-          _otpFocusNodes[i + 1].requestFocus();
-        }
-      });
-    }
-  }
-
   @override
   void dispose() {
-    for (var controller in _otpDigitControllers) {
-      controller.dispose();
-    }
-    for (var focusNode in _otpFocusNodes) {
-      focusNode.dispose();
-    }
     _otpController.dispose();
     super.dispose();
   }
@@ -217,7 +173,8 @@ class _CourseEnrollmentScreenState extends State<CourseEnrollmentScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.background, // THEME: Dynamic background
       body: SafeArea(
-        child: Column(
+        child: SingleChildScrollView(
+          child: Column(
           children: [
             // Header
             Container(
@@ -347,6 +304,7 @@ class _CourseEnrollmentScreenState extends State<CourseEnrollmentScreen> {
               ),
           ],
         ),
+        ),
       ),
     );
   }
@@ -444,43 +402,40 @@ class _CourseEnrollmentScreenState extends State<CourseEnrollmentScreen> {
                 ),
                 const SizedBox(height: 20),
                 
-                // OTP Input Fields - Larger size like instructor attendance screen
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(6, (index) {
-                      return Container(
-                        width: 44, // Reduced from 48 to fit better
-                        height: 52, // Reduced from 56 to fit better
-                        margin: const EdgeInsets.symmetric(horizontal: 3),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).cardColor, // THEME: Dynamic background
-                          border: Border.all(color: Theme.of(context).dividerColor), // THEME: Dynamic border
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Center(
-                          child: TextField(
-                            controller: _otpDigitControllers[index],
-                            focusNode: _otpFocusNodes[index],
-                            textAlign: TextAlign.center,
-                            keyboardType: TextInputType.number,
-                            maxLength: 1,
-                            style: GoogleFonts.inter(
-                              color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
-                              fontSize: 20, // Slightly larger font
-                              fontWeight: FontWeight.w600,
-                            ),
-                            decoration: const InputDecoration(
-                              counterText: '',
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            onChanged: (value) => _handleOtpInput(value, index),
-                          ),
-                        ),
-                      );
-                    }),
+                // Single OTP Input Field
+                Container(
+                  width: 280,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Theme.of(context).primaryColor.withOpacity(0.3),
+                      width: 2,
+                    ),
+                  ),
+                  child: TextField(
+                    controller: _otpController,
+                    textAlign: TextAlign.center,
+                    maxLength: 6,
+                    keyboardType: TextInputType.number,
+                    style: GoogleFonts.inter(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w700,
+                      color: Theme.of(context).colorScheme.onBackground,
+                      letterSpacing: 20,
+                    ),
+                    decoration: InputDecoration(
+                      counterText: '',
+                      border: InputBorder.none,
+                      hintText: '000000',
+                      hintStyle: GoogleFonts.inter(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w300,
+                        color: Theme.of(context).colorScheme.onBackground.withOpacity(0.3),
+                        letterSpacing: 20,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),

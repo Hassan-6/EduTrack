@@ -1,0 +1,49 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user is an instructor
+    function isInstructor() {
+      return request.auth != null && 
+             firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.userType == 'instructor';
+    }
+    
+    // Helper function to check if user is a student
+    function isStudent() {
+      return request.auth != null && 
+             firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.userType == 'student';
+    }
+    
+    // Attendance photos - students can upload their own photos
+    match /attendance_photos/{fileName} {
+      // Allow students to upload their own attendance photos
+      // Filename format: attendance_{studentId}_{timestamp}.jpg
+      allow create: if isStudent() && 
+                      fileName.matches('attendance_' + request.auth.uid + '_[0-9]+\\.jpg');
+      
+      // Allow instructors and the student who uploaded to read
+      allow read: if isAuthenticated();
+      
+      // No one can update or delete (photos are permanent records)
+      allow update, delete: if false;
+    }
+    
+    // Profile pictures (if needed in future)
+    match /profile_pictures/{userId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && request.auth.uid == userId;
+      allow delete: if isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Course materials (if needed in future)
+    match /course_materials/{courseId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isInstructor();
+    }
+  }
+}

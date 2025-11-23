@@ -1,1 +1,31 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"edu-track-1","appId":"1:218609860682:android:e1c8cd65b5cd243a12e6b3","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"edu-track-1","configurations":{"android":"1:218609860682:android:e1c8cd65b5cd243a12e6b3","ios":"1:218609860682:ios:8dd1155f06fad54112e6b3","macos":"1:218609860682:ios:8dd1155f06fad54112e6b3","web":"1:218609860682:web:62b5e02431d1b4ff12e6b3","windows":"1:218609860682:web:7d7e2d9cf44b90e612e6b3"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "edu-track-1",
+          "appId": "1:218609860682:android:e1c8cd65b5cd243a12e6b3",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "edu-track-1",
+          "configurations": {
+            "android": "1:218609860682:android:e1c8cd65b5cd243a12e6b3",
+            "ios": "1:218609860682:ios:8dd1155f06fad54112e6b3",
+            "macos": "1:218609860682:ios:8dd1155f06fad54112e6b3",
+            "web": "1:218609860682:web:62b5e02431d1b4ff12e6b3",
+            "windows": "1:218609860682:web:7d7e2d9cf44b90e612e6b3"
+          }
+        }
+      }
+    }
+  }
+}

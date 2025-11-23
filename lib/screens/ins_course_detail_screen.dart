@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/course_model.dart';
 import '../utils/route_manager.dart';
+import '../services/firebase_service.dart';
 import 'present_question_screen.dart';
 import 'question_results_screen.dart';
+import 'attendance_history_screen.dart';
 
 class InstructorCourseDetailScreen extends StatefulWidget {
   final Course course;
@@ -34,40 +37,9 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
     },
   ];
 
-  // Mock data for attendance records
-  final List<Map<String, dynamic>> _attendanceRecords = [
-    {
-      'date': '2024-03-15',
-      'present': 45,
-      'total': 50,
-      'students': [
-        {'name': 'Ali Khan', 'rollNumber': '241631445'},
-        {'name': 'Sara Ahmed', 'rollNumber': '241631446'},
-        {'name': 'Usman Ali', 'rollNumber': '241631447'},
-        // ... more students
-      ]
-    },
-    {
-      'date': '2024-03-10',
-      'present': 42,
-      'total': 50,
-      'students': [
-        {'name': 'Ali Khan', 'rollNumber': '241631445'},
-        {'name': 'Sara Ahmed', 'rollNumber': '241631446'},
-        // ... more students
-      ]
-    },
-    {
-      'date': '2024-03-05',
-      'present': 48,
-      'total': 50,
-      'students': [
-        {'name': 'Ali Khan', 'rollNumber': '241631445'},
-        {'name': 'Usman Ali', 'rollNumber': '241631447'},
-        // ... more students
-      ]
-    },
-  ];
+  // Real attendance data from Firebase
+  List<Map<String, dynamic>> _attendanceRecords = [];
+  bool _isLoadingAttendance = true;
 
   // Mock data for enrollment requests
   final List<Map<String, String>> _enrollmentRequests = [
@@ -75,6 +47,98 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
     {'name': 'Fatima Noor', 'rollNumber': '241631449'},
     {'name': 'Bilal Shah', 'rollNumber': '241631450'},
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAttendanceHistory();
+  }
+
+  // Fetch attendance history from Firebase
+  Future<void> _loadAttendanceHistory() async {
+    try {
+      // Get all attendance sessions for this course
+      final sessions = await FirebaseService.getCourseAttendanceHistory(widget.course.id);
+      
+      // Collect all unique student IDs to batch fetch profiles
+      Set<String> allStudentIds = {};
+      for (var session in sessions) {
+        final verified = session['verifiedStudents'] as List<dynamic>? ?? [];
+        allStudentIds.addAll(verified.map((id) => id.toString()));
+      }
+      
+      // Batch fetch all student profiles
+      Map<String, Map<String, dynamic>> studentProfiles = {};
+      for (String studentId in allStudentIds) {
+        try {
+          final profile = await FirebaseService.getUserProfile(studentId);
+          if (profile != null) {
+            studentProfiles[studentId] = profile;
+          }
+        } catch (e) {
+          print('Error fetching profile for student $studentId: $e');
+        }
+      }
+      
+      // Get total enrolled students count for the course
+      final courseEnrolledCount = await FirebaseService.getCourseEnrolledStudentsCount(widget.course.id);
+      
+      // Process each session
+      List<Map<String, dynamic>> processedRecords = [];
+      for (var session in sessions) {
+        final verifiedStudents = session['verifiedStudents'] as List<dynamic>? ?? [];
+        List<Map<String, String>> studentDetails = [];
+        
+        // Build student details list using cached profiles
+        for (var studentId in verifiedStudents) {
+          final profile = studentProfiles[studentId.toString()];
+          if (profile != null) {
+            studentDetails.add({
+              'name': profile['name'] ?? 'Unknown',
+              'rollNumber': profile['rollNumber'] ?? 'N/A',
+            });
+          } else {
+            studentDetails.add({
+              'name': 'Unknown',
+              'rollNumber': 'N/A',
+            });
+          }
+        }
+        
+        processedRecords.add({
+          'date': _formatDate(session['createdAt']),
+          'present': verifiedStudents.length,
+          'total': courseEnrolledCount,
+          'students': studentDetails,
+          'sessionId': session['id'],
+        });
+      }
+      
+      setState(() {
+        _attendanceRecords = processedRecords;
+        _isLoadingAttendance = false;
+      });
+    } catch (e) {
+      print('Error loading attendance history: $e');
+      setState(() {
+        _isLoadingAttendance = false;
+      });
+    }
+  }
+
+  // Format Firestore Timestamp to readable date
+  String _formatDate(dynamic timestamp) {
+    if (timestamp == null) return 'Unknown';
+    DateTime date;
+    if (timestamp is Timestamp) {
+      date = timestamp.toDate();
+    } else if (timestamp is DateTime) {
+      date = timestamp;
+    } else {
+      return 'Unknown';
+    }
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
 
   void _presentQuestion() {
     Navigator.push(
@@ -100,6 +164,18 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
         builder: (context) => AttendanceRecordScreen(
           course: widget.course,
           record: record,
+        ),
+      ),
+    );
+  }
+
+  void _viewAttendanceHistory() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AttendanceHistoryScreen(
+          course: widget.course,
+          attendanceRecords: _attendanceRecords,
         ),
       ),
     );
@@ -349,9 +425,57 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
             ),
           ),
           const SizedBox(height: 16),
-          Column(
-            children: _attendanceRecords.map((record) => _buildAttendanceItem(record)).toList(),
-          ),
+          // Show loading indicator while fetching
+          if (_isLoadingAttendance)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20.0),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          // Show message if no records
+          else if (_attendanceRecords.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.event_note,
+                      size: 48,
+                      color: Colors.grey[400],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'No attendance records yet',
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFF6B7280),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Attendance sessions will appear here once you generate OTPs',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFF9CA3AF),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          // Show attendance records
+          else
+            Column(
+              children: _attendanceRecords.map((record) => _buildAttendanceItem(record)).toList(),
+            ),
         ],
       ),
     );
@@ -594,6 +718,43 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
                     const SizedBox(width: 8),
                     Text(
                       'View Enrollment Requests',
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFF374151),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // View Attendance History Button
+          Container(
+            width: double.infinity,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: _viewAttendanceHistory,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.history,
+                      color: widget.course.color,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'View Attendance History',
                       style: GoogleFonts.inter(
                         color: const Color(0xFF374151),
                         fontSize: 16,

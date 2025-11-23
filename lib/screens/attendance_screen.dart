@@ -14,9 +14,7 @@ class AttendanceScreen extends StatefulWidget {
 }
 
 class _AttendanceScreenState extends State<AttendanceScreen> {
-  final List<TextEditingController> _codeControllers =
-      List.generate(6, (index) => TextEditingController());
-  final List<FocusNode> _focusNodes = List.generate(6, (index) => FocusNode());
+  final TextEditingController _otpController = TextEditingController();
   
   // FIX: Initialize with default values
   Student _currentStudent = Student(name: 'Loading...', rollNumber: 'N/A');
@@ -24,17 +22,16 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   bool _isPhotoTaken = false;
   bool _isCodeEntered = false;
+  String? _capturedPhotoPath;
 
   @override
   void initState() {
     super.initState();
-    for (int i = 0; i < _focusNodes.length; i++) {
-      _focusNodes[i].addListener(() {
-        if (!_focusNodes[i].hasFocus && i < _focusNodes.length - 1) {
-          FocusScope.of(context).requestFocus(_focusNodes[i + 1]);
-        }
+    _otpController.addListener(() {
+      setState(() {
+        _isCodeEntered = _otpController.text.length == 6;
       });
-    }
+    });
     _loadStudentData();
   }
 
@@ -69,30 +66,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   @override
   void dispose() {
-    for (var controller in _codeControllers) {
-      controller.dispose();
-    }
-    for (var focusNode in _focusNodes) {
-      focusNode.dispose();
-    }
+    _otpController.dispose();
     super.dispose();
   }
 
-  void _onCodeChanged(String value, int index) {
-    if (value.length == 1 && index < _codeControllers.length - 1) {
-      FocusScope.of(context).requestFocus(_focusNodes[index + 1]);
-    } else if (value.isEmpty && index > 0) {
-      FocusScope.of(context).requestFocus(_focusNodes[index - 1]);
-    }
-
-    final allEntered = _codeControllers.every(
-        (controller) => controller.text.isNotEmpty && controller.text.length == 1);
-    setState(() {
-      _isCodeEntered = allEntered;
-    });
-  }
-
   void _takePhoto() async {
+    // Unfocus the OTP field before opening camera
+    FocusScope.of(context).unfocus();
+    
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -103,6 +84,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     if (result != null) {
       setState(() {
         _isPhotoTaken = true;
+        _capturedPhotoPath = result; // Store the photo path
       });
       
       ScaffoldMessenger.of(context).showSnackBar(
@@ -114,7 +96,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
 
-  void _submitAttendance() {
+  Future<void> _submitAttendance() async {
     if (!_isCodeEntered) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -135,35 +117,163 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       return;
     }
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).cardColor, // THEME: Dynamic background
-        title: Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.green),
-            const SizedBox(width: 8),
-            Text(
-              'Attendance Submitted',
-              style: TextStyle(color: Theme.of(context).colorScheme.onBackground), // THEME: Dynamic text
+    // Get the entered OTP
+    final enteredOtp = _otpController.text.trim();
+    
+    try {
+      // Get current user ID
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      if (authProvider.currentUser == null) {
+        throw Exception('User not authenticated');
+      }
+      final studentId = authProvider.currentUser!.uid;
+      
+      print('=== Submitting Attendance ===');
+      print('Student ID: $studentId');
+      print('Entered OTP: $enteredOtp');
+      
+      // Get student's enrolled courses
+      final userProfile = await FirebaseService.getUserProfile(studentId);
+      if (userProfile == null) {
+        throw Exception('User profile not found');
+      }
+      
+      print('User profile data: $userProfile');
+      
+      // Get enrolled courses from user profile
+      final enrolledCourses = userProfile['enrolledCourses'] as List<dynamic>? ?? [];
+      print('Enrolled courses from profile: $enrolledCourses');
+      
+      // If no enrolled courses in profile, try to find all courses where student is enrolled
+      List<String> coursesToCheck = [];
+      if (enrolledCourses.isEmpty) {
+        print('No enrolledCourses in profile, searching all courses where student is enrolled...');
+        final allCourses = await FirebaseService.getAllCoursesWhereStudentEnrolled(studentId);
+        coursesToCheck = allCourses;
+        print('Found ${coursesToCheck.length} courses where student is enrolled');
+      } else {
+        coursesToCheck = enrolledCourses.map((c) => c.toString()).toList();
+      }
+      
+      if (coursesToCheck.isEmpty) {
+        throw Exception('You are not enrolled in any courses. Please enroll in a course first.');
+      }
+      
+      // First, verify OTP is valid (before uploading photo to save time)
+      bool verified = false;
+      String? verifiedCourseId;
+      String? verifiedCourseTitle;
+      
+      for (String courseId in coursesToCheck) {
+        print('Checking course: $courseId with OTP: $enteredOtp');
+        final success = await FirebaseService.verifyAttendance(
+          courseId: courseId,
+          studentId: studentId,
+          otp: enteredOtp,
+          photoURL: null, // Don't pass photo yet, just verify OTP
+        );
+        
+        if (success) {
+          verified = true;
+          verifiedCourseId = courseId;
+          // Get course title for display
+          final courseDoc = await FirebaseService.getCourseById(courseId);
+          verifiedCourseTitle = courseDoc?['title'] ?? 'Course';
+          print('Attendance verified for course: $verifiedCourseTitle');
+          break;
+        }
+      }
+      
+      if (!verified) {
+        throw Exception('Invalid or expired OTP. Please check the code and try again.');
+      }
+      
+      print('=== ATTENDANCE VERIFIED SUCCESSFULLY ===');
+      print('Verified course ID: $verifiedCourseId');
+      print('Captured photo path: $_capturedPhotoPath');
+      
+      // Now upload photo and update the session with photo URL
+      if (_capturedPhotoPath != null && verifiedCourseId != null) {
+        print('Starting photo upload process...');
+        final photoURL = await FirebaseService.uploadAttendancePhoto(
+          studentId: studentId,
+          photoPath: _capturedPhotoPath!,
+        );
+        print('Photo upload result: $photoURL');
+        
+        // Update the session with photo URL
+        if (photoURL != null && photoURL.isNotEmpty) {
+          print('Updating attendance session with photo URL...');
+          await FirebaseService.updateAttendancePhoto(
+            courseId: verifiedCourseId,
+            studentId: studentId,
+            otp: enteredOtp,
+            photoURL: photoURL,
+          );
+          print('Photo URL updated in session');
+        } else {
+          print('WARNING: Photo URL is null or empty, not updating session');
+        }
+      } else {
+        print('WARNING: Photo path or course ID is null');
+        print('Photo path: $_capturedPhotoPath');
+        print('Course ID: $verifiedCourseId');
+      }
+
+      // Show success dialog
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: Theme.of(context).cardColor,
+            title: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Attendance Submitted',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-        content: Text(
-          'Your attendance has been successfully recorded for today.',
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurface), // THEME: Dynamic text
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'OK',
-              style: TextStyle(color: Theme.of(context).primaryColor), // THEME: Dynamic button
+            content: SingleChildScrollView(
+              child: Text(
+                'Your attendance has been successfully recorded for $verifiedCourseTitle.',
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+              ),
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'OK',
+                  style: TextStyle(color: Theme.of(context).primaryColor),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
+        );
+        
+        // Clear the OTP field
+        _otpController.clear();
+        setState(() {
+          _isCodeEntered = false;
+          _isPhotoTaken = false;
+        });
+      }
+    } catch (e) {
+      print('Error submitting attendance: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _viewAttendanceHistory() {
@@ -389,42 +499,38 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           ),
           const SizedBox(height: 20),
 
-          // Code Input Boxes
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: List.generate(6, (index) {
-                return SizedBox(
-                  width: 40,
-                  height: 48,
-                  child: TextField(
-                    controller: _codeControllers[index],
-                    focusNode: _focusNodes[index],
-                    textAlign: TextAlign.center,
-                    maxLength: 1,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      counterText: '',
-                      contentPadding: EdgeInsets.zero,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: Theme.of(context).dividerColor), // THEME: Dynamic border
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: Theme.of(context).primaryColor), // THEME: Dynamic focus border
-                      ),
-                    ),
-                    style: GoogleFonts.inter(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
-                    ),
-                    onChanged: (value) => _onCodeChanged(value, index),
-                  ),
-                );
-              }),
+          // Single OTP Input Field
+          TextField(
+            controller: _otpController,
+            textAlign: TextAlign.center,
+            maxLength: 6,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              counterText: '',
+              hintText: 'Enter 6-digit code',
+              hintStyle: GoogleFonts.inter(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                fontSize: 16,
+              ),
+              contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Theme.of(context).dividerColor),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Theme.of(context).dividerColor),
+              ),
+            ),
+            style: GoogleFonts.inter(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onBackground,
+              letterSpacing: 8,
             ),
           ),
         ],

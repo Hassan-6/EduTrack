@@ -5,6 +5,7 @@ import '../widgets/course_model.dart';
 import 'popup_question_screen.dart';
 import 'quiz_screen.dart';
 import '../utils/theme_provider.dart';
+import '../services/firebase_service.dart';
 
 class CourseDetailScreen extends StatefulWidget {
   final Course course;
@@ -46,12 +47,28 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
     _checkActivityStatus();
   }
 
-  void _checkActivityStatus() {
-    // Make pop-up question available only for Introduction to Programming
-    setState(() {
-      _popupQuestionAvailable = widget.course.name == 'Introduction to Programming';
-      _quizAvailable = true; // Quiz is ongoing for all courses
-    });
+  Future<void> _checkActivityStatus() async {
+    // Check if there are active pop-up questions and quizzes for this course
+    try {
+      // Check for active pop-up questions
+      final popupQuestions = await FirebaseService.getCoursePopupQuestions(widget.course.id);
+      final activePopups = popupQuestions.where((q) => q['isActive'] == true).toList();
+      
+      // Check for active quizzes
+      final quizzes = await FirebaseService.getCourseQuizzes(widget.course.id);
+      final activeQuizzes = quizzes.where((q) => q['isActive'] == true).toList();
+      
+      setState(() {
+        _popupQuestionAvailable = activePopups.isNotEmpty;
+        _quizAvailable = activeQuizzes.isNotEmpty;
+      });
+    } catch (e) {
+      print('Error checking activity status: $e');
+      setState(() {
+        _popupQuestionAvailable = false;
+        _quizAvailable = false;
+      });
+    }
   }
 
   void _joinPopupQuestion() {
