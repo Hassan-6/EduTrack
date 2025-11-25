@@ -2,9 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../utils/theme_provider.dart';
+import '../services/notes_service.dart';
 
 class NewNoteScreen extends StatefulWidget {
-  const NewNoteScreen({Key? key}) : super(key: key);
+  final List<String> availableCategories;
+  final VoidCallback onNoteSaved;
+
+  const NewNoteScreen({
+    Key? key,
+    required this.availableCategories,
+    required this.onNoteSaved,
+  }) : super(key: key);
 
   @override
   State<NewNoteScreen> createState() => _NewNoteScreenState();
@@ -13,13 +21,48 @@ class NewNoteScreen extends StatefulWidget {
 class _NewNoteScreenState extends State<NewNoteScreen> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
-  String _selectedCategory = 'Math';
+  late String _selectedCategory;
 
-  final List<String> _categories = ['Math', 'Physics', 'Personal', 'Projects'];
+  @override
+  void initState() {
+    super.initState();
+    _selectedCategory = widget.availableCategories.contains('Personal')
+        ? 'Personal'
+        : (widget.availableCategories.isNotEmpty ? widget.availableCategories[1] : 'Personal');
+  }
 
-  void _saveNote() {
-    // Save note logic here
-    Navigator.pop(context);
+  Future<void> _saveNote() async {
+    if (_titleController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Title cannot be empty')),
+      );
+      return;
+    }
+
+    try {
+      await NotesService.createNote(
+        title: _titleController.text,
+        content: _contentController.text,
+        category: _selectedCategory,
+      );
+
+      widget.onNoteSaved();
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Note created successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error creating note: $e')),
+        );
+      }
+    }
   }
 
   void _onBackPressed() {
@@ -92,22 +135,22 @@ class _NewNoteScreenState extends State<NewNoteScreen> {
               decoration: BoxDecoration(
                 color: Theme.of(context).brightness == Brightness.dark 
                     ? Colors.black.withOpacity(0.2) 
-                    : Colors.white, // THEME: Adaptive background
-                border: Border.all(color: Theme.of(context).dividerColor), // THEME: Dynamic border
+                    : Colors.white,
+                border: Border.all(color: Theme.of(context).dividerColor),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: DropdownButton<String>(
                 value: _selectedCategory,
                 isExpanded: true,
-                underline: const SizedBox(), // Remove default underline
+                underline: const SizedBox(),
                 icon: Icon(Icons.arrow_drop_down, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
-                items: _categories.map((String category) {
+                items: widget.availableCategories.where((cat) => cat != 'All').map((String category) {
                   return DropdownMenuItem<String>(
                     value: category,
                     child: Text(
                       category,
                       style: GoogleFonts.inter(
-                        color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
+                        color: Theme.of(context).colorScheme.onBackground,
                         fontSize: 16,
                       ),
                     ),
@@ -151,9 +194,118 @@ class _NewNoteScreenState extends State<NewNoteScreen> {
                 ),
               ),
             ),
+            // Formatting Toolbar
+            Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface.withOpacity(0.8),
+                border: Border(top: BorderSide(color: Theme.of(context).colorScheme.outline.withOpacity(0.3))),
+              ),
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                spacing: 4,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildFormatButton('B', 'Bold', _applyBoldFormatting),
+                      _buildFormatButton('I', 'Italic', _applyItalicFormatting),
+                      _buildFormatButton('U', 'Underline', _applyUnderlineFormatting),
+                      _buildFormatButton('•', 'Bullets', _applyListFormatting),
+                      Expanded(child: Container()),
+                    ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: _saveNote,
+                        icon: const Icon(Icons.check),
+                        label: const Text('Save'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                      Expanded(child: Container()),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildFormatButton(String label, String tooltip, VoidCallback onPressed) {
+    return Tooltip(
+      message: tooltip,
+      child: IconButton(
+        onPressed: onPressed,
+        icon: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        tooltip: tooltip,
+      ),
+    );
+  }
+
+  void _applyBoldFormatting() {
+    _applyTextStyle('\u0001', '\u0002');
+  }
+
+  void _applyItalicFormatting() {
+    _applyTextStyle('\u0003', '\u0004');
+  }
+
+  void _applyUnderlineFormatting() {
+    _applyTextStyle('\u0005', '\u0006');
+  }
+
+  void _applyListFormatting() {
+    final text = _contentController.text;
+    final selection = _contentController.selection;
+    final start = selection.start;
+    final end = selection.end;
+
+    if (start == -1) return;
+
+    if (start == end) {
+      final newText = text.substring(0, start) + '• ' + text.substring(start);
+      _contentController.text = newText;
+      _contentController.selection = TextSelection.fromPosition(TextPosition(offset: start + 2));
+    } else {
+      final selectedText = text.substring(start, end);
+      final lines = selectedText.split('\n');
+      final formattedLines = lines.map((line) {
+        if (line.isEmpty) return line;
+        return line.startsWith('• ') ? line.substring(2) : '• $line';
+      }).toList();
+      final newText = text.substring(0, start) + formattedLines.join('\n') + text.substring(end);
+      _contentController.text = newText;
+      _contentController.selection = TextSelection(baseOffset: start, extentOffset: start + formattedLines.join('\n').length);
+    }
+
+    setState(() {});
+  }
+
+  void _applyTextStyle(String openMarker, String closeMarker) {
+    final text = _contentController.text;
+    final selection = _contentController.selection;
+    final start = selection.start;
+    final end = selection.end;
+
+    if (start == -1) return;
+
+    if (start == end) {
+      final newText = text.substring(0, start) + openMarker + closeMarker + text.substring(start);
+      _contentController.text = newText;
+      _contentController.selection = TextSelection.fromPosition(TextPosition(offset: start + 1));
+    } else {
+      final selectedText = text.substring(start, end);
+      final newText = text.substring(0, start) + openMarker + selectedText + closeMarker + text.substring(end);
+      _contentController.text = newText;
+      _contentController.selection = TextSelection(baseOffset: start + 1, extentOffset: end + 1);
+    }
+
+    setState(() {});
   }
 }

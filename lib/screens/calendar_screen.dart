@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'new_entry_screen.dart';
 import '../utils/theme_provider.dart';
 import '../utils/calendar_event.dart';
@@ -17,65 +19,86 @@ class _CalendarScreenState extends State<CalendarScreen> {
   late DateTime _focusedDay;
   DateTime? _selectedDay;
   CalendarFormat _calendarFormat = CalendarFormat.month;
-
-  List<CalendarEvent> _events = [
-    CalendarEvent(
-      id: '1',
-      title: 'Math Assignment 3 Due',
-      description: 'Complete chapters 5-7',
-      date: DateTime(2024, 11, 15),
-      startTime: '11:59 PM',
-      endTime: '',
-      type: EventType.assignment,
-      color: const Color(0xFF4E9FEC),
-    ),
-    CalendarEvent(
-      id: '2',
-      title: 'Study Group Meeting',
-      description: 'Library room 302',
-      date: DateTime(2024, 11, 15),
-      startTime: '3:00 PM',
-      endTime: '5:00 PM',
-      type: EventType.event,
-      color: const Color(0xFF5CD6C0),
-    ),
-    CalendarEvent(
-      id: '3',
-      title: 'Biology Quiz',
-      description: 'Chapters 1-4',
-      date: DateTime(2024, 11, 5),
-      startTime: '10:00 AM',
-      endTime: '11:00 AM',
-      type: EventType.exam,
-      color: const Color(0xFFFB923C),
-    ),
-    CalendarEvent(
-      id: '4',
-      title: 'English Essay Due',
-      description: 'Minimum 1000 words',
-      date: DateTime(2024, 11, 12),
-      startTime: '11:59 PM',
-      endTime: '',
-      type: EventType.assignment,
-      color: const Color(0xFF4E9FEC),
-    ),
-    CalendarEvent(
-      id: '5',
-      title: 'Physics Lab',
-      description: 'Experiment #5',
-      date: DateTime(2024, 11, 18),
-      startTime: '2:00 PM',
-      endTime: '4:00 PM',
-      type: EventType.event,
-      color: const Color(0xFF5CD6C0),
-    ),
-  ];
+  List<CalendarEvent> _events = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _focusedDay = DateTime.now();
     _selectedDay = DateTime.now();
+    _loadEvents();
+  }
+
+  Future<void> _loadEvents() async {
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) return;
+
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('calendar_events')
+          .orderBy('date', descending: false)
+          .get();
+
+      setState(() {
+        _events = snapshot.docs.map((doc) {
+          final data = doc.data();
+          return CalendarEvent(
+            id: doc.id,
+            title: data['title'] ?? '',
+            description: data['description'] ?? '',
+            date: (data['date'] as Timestamp).toDate(),
+            startTime: data['startTime'] ?? '',
+            endTime: data['endTime'] ?? '',
+            type: _parseEventType(data['type'] ?? 'event'),
+            color: _getColorForType(_parseEventType(data['type'] ?? 'event')),
+          );
+        }).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading events: $e');
+      setState(() => _isLoading = false);
+    }
+  }
+
+  EventType _parseEventType(String type) {
+    switch (type) {
+      case 'assignment':
+        return EventType.assignment;
+      case 'exam':
+        return EventType.exam;
+      case 'event':
+      default:
+        return EventType.event;
+    }
+  }
+
+  Color _getColorForType(EventType type) {
+    switch (type) {
+      case EventType.assignment:
+        return const Color(0xFF4E9FEC);
+      case EventType.event:
+        return const Color(0xFF5CD6C0);
+      case EventType.exam:
+        return const Color(0xFFFB923C);
+    }
+  }
+
+  List<CalendarEvent> getUpcomingEvents({int limit = 1}) {
+    final now = DateTime.now();
+    final upcoming = _events
+        .where((event) => event.date.isAfter(now))
+        .toList();
+    upcoming.sort((a, b) => a.date.compareTo(b.date));
+    return upcoming.take(limit).toList();
+  }
+
+  List<CalendarEvent> getTodaysEvents() {
+    final today = DateTime.now();
+    return _getEventsForDay(today);
   }
 
   List<CalendarEvent> _getEventsForDay(DateTime day) {
@@ -98,30 +121,53 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
 
     if (result != null && result is CalendarEvent) {
-      setState(() {
-        _events.add(result);
-      });
-      
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Event "${result.title}" added successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      try {
+        final userId = FirebaseAuth.instance.currentUser?.uid;
+        if (userId == null) throw Exception('User not authenticated');
+
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .collection('calendar_events')
+            .add({
+          'title': result.title,
+          'description': result.description,
+          'date': result.date,
+          'startTime': result.startTime,
+          'endTime': result.endTime,
+          'type': _eventTypeToString(result.type),
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        await _loadEvents();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Event "${result.title}" added successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error adding event: $e')),
+          );
+        }
+      }
     }
   }
 
-  Color _getEventColor(EventType type) {
+  String _eventTypeToString(EventType type) {
     switch (type) {
       case EventType.assignment:
-        return const Color(0xFF4E9FEC); // Blue
+        return 'assignment';
       case EventType.event:
-        return const Color(0xFF5CD6C0); // Green
+        return 'event';
       case EventType.exam:
-        return const Color(0xFFFB923C); // Orange
-      default:
-        return const Color(0xFF4E9FEC);
+        return 'exam';
     }
   }
 
@@ -136,19 +182,32 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final selectedEvents = _selectedDay != null ? _getEventsForDay(_selectedDay!) : [];
 
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.background,
+        body: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(
+              Theme.of(context).primaryColor,
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background, // THEME: Dynamic background
+      backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).cardColor, // THEME: Dynamic app bar
+        backgroundColor: Theme.of(context).cardColor,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onBackground), // THEME: Dynamic icon
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onBackground),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           'Calendar',
           style: GoogleFonts.inter(
-            color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
+            color: Theme.of(context).colorScheme.onBackground,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -160,19 +219,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              // Calendar Widget
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor, // THEME: Dynamic card
+                  color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Theme.of(context).dividerColor), // THEME: Dynamic border
+                  border: Border.all(color: Theme.of(context).dividerColor),
                   boxShadow: [
                     BoxShadow(
                       color: Theme.of(context).brightness == Brightness.dark 
                           ? Colors.black.withOpacity(0.3) 
-                          : Colors.black.withOpacity(0.05), // THEME: Adaptive shadow
+                          : Colors.black.withOpacity(0.05),
                       blurRadius: 2,
                       offset: const Offset(0, 1),
                     ),
@@ -192,22 +250,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   },
                   calendarFormat: _calendarFormat,
                   eventLoader: (day) {
-                    final events = _getEventsForDay(day);
-                    return events;
+                    return _getEventsForDay(day);
                   },
-                  
-                  // Custom day builder for colored dots
                   calendarBuilders: CalendarBuilders(
                     markerBuilder: (context, date, events) {
                       if (events.isEmpty) return const SizedBox.shrink();
                       
-                      // Filter out null events and get unique event types
                       final validEvents = events.whereType<CalendarEvent>();
                       final eventTypes = validEvents.map((e) => e.type).toSet();
                       
                       if (eventTypes.isEmpty) return const SizedBox.shrink();
                       
-                      // If only one event type, show single dot
                       if (eventTypes.length == 1) {
                         final eventType = eventTypes.first;
                         return Positioned(
@@ -217,14 +270,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             width: 6,
                             height: 6,
                             decoration: BoxDecoration(
-                              color: _getEventColor(eventType),
+                              color: _getColorForType(eventType),
                               shape: BoxShape.circle,
                             ),
                           ),
                         );
                       }
                       
-                      // If multiple event types, show multiple dots
                       return Positioned(
                         bottom: 1,
                         right: 1,
@@ -236,7 +288,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               height: 4,
                               margin: const EdgeInsets.symmetric(horizontal: 1),
                               decoration: BoxDecoration(
-                                color: _getEventColor(type),
+                                color: _getColorForType(type),
                                 shape: BoxShape.circle,
                               ),
                             );
@@ -245,61 +297,57 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       );
                     },
                   ),
-                  
-                  // Styling
                   headerStyle: HeaderStyle(
                     formatButtonVisible: true,
                     titleCentered: true,
                     formatButtonShowsNext: false,
                     formatButtonDecoration: BoxDecoration(
-                      border: Border.all(color: Theme.of(context).dividerColor), // THEME: Dynamic border
+                      border: Border.all(color: Theme.of(context).dividerColor),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     formatButtonTextStyle: GoogleFonts.inter(
-                      color: Theme.of(context).colorScheme.onSurface, // THEME: Dynamic text
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 14,
                     ),
                     titleTextStyle: GoogleFonts.inter(
-                      color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
+                      color: Theme.of(context).colorScheme.onBackground,
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                     ),
                     leftChevronIcon: Icon(
                       Icons.chevron_left,
-                      color: Theme.of(context).colorScheme.onSurface, // THEME: Dynamic icon
+                      color: Theme.of(context).colorScheme.onSurface,
                       size: 20,
                     ),
                     rightChevronIcon: Icon(
                       Icons.chevron_right,
-                      color: Theme.of(context).colorScheme.onSurface, // THEME: Dynamic icon
+                      color: Theme.of(context).colorScheme.onSurface,
                       size: 20,
                     ),
                   ),
-                  
                   daysOfWeekStyle: DaysOfWeekStyle(
                     weekdayStyle: GoogleFonts.inter(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), // THEME: Dynamic text
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
                     weekendStyle: GoogleFonts.inter(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), // THEME: Dynamic text
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  
                   calendarStyle: CalendarStyle(
                     defaultTextStyle: GoogleFonts.inter(
-                      color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
+                      color: Theme.of(context).colorScheme.onBackground,
                       fontSize: 14,
                     ),
                     weekendTextStyle: GoogleFonts.inter(
-                      color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
+                      color: Theme.of(context).colorScheme.onBackground,
                       fontSize: 14,
                     ),
                     outsideTextStyle: GoogleFonts.inter(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5), // THEME: Dynamic text
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
                       fontSize: 14,
                     ),
                     selectedTextStyle: GoogleFonts.inter(
@@ -308,17 +356,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       fontWeight: FontWeight.w600,
                     ),
                     todayTextStyle: GoogleFonts.inter(
-                      color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
+                      color: Theme.of(context).colorScheme.onBackground,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
                     todayDecoration: BoxDecoration(
                       color: Colors.transparent,
-                      border: Border.all(color: Theme.of(context).primaryColor, width: 1), // THEME: Dynamic border
+                      border: Border.all(color: Theme.of(context).primaryColor, width: 1),
                       shape: BoxShape.circle,
                     ),
                     selectedDecoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor, // THEME: Dynamic selection
+                      color: Theme.of(context).primaryColor,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -327,18 +375,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
               const SizedBox(height: 24),
 
-              // Event Legend
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor, // THEME: Dynamic card
+                  color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
                       color: Theme.of(context).brightness == Brightness.dark 
                           ? Colors.black.withOpacity(0.3) 
-                          : Colors.black.withOpacity(0.05), // THEME: Adaptive shadow
+                          : Colors.black.withOpacity(0.05),
                       blurRadius: 2,
                       offset: const Offset(0, 1),
                     ),
@@ -356,18 +403,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
               const SizedBox(height: 24),
 
-              // Selected Date Events
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor, // THEME: Dynamic card
+                  color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
                       color: Theme.of(context).brightness == Brightness.dark 
                           ? Colors.black.withOpacity(0.3) 
-                          : Colors.black.withOpacity(0.05), // THEME: Adaptive shadow
+                          : Colors.black.withOpacity(0.05),
                       blurRadius: 2,
                       offset: const Offset(0, 1),
                     ),
@@ -381,7 +427,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ? '${_getMonthName(_selectedDay!.month)} ${_selectedDay!.day}, ${_selectedDay!.year}'
                           : 'Select a date',
                       style: GoogleFonts.inter(
-                        color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
+                        color: Theme.of(context).colorScheme.onBackground,
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
                       ),
@@ -395,13 +441,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           'No events for this day',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.inter(
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), // THEME: Dynamic text
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                             fontSize: 16,
                           ),
                         ),
                       )
                     else
-                      ...selectedEvents.map((event) => _buildEventItem(event)),
+                      ...selectedEvents.map((event) => _buildEventItem(event)).toList(),
                   ],
                 ),
               ),
@@ -433,19 +479,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
             blurRadius: 6,
           ),
         ],
-        gradient: themeProvider.gradient, // THEME: Dynamic gradient
+        gradient: themeProvider.gradient,
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(9999),
           onTap: _addNewEvent,
-          child: Center(
-            child: Image.network(
-              'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2F1acf3707-fc14-48b1-a087-6a99c88d6baa.png',
-              width: 16,
-              height: 16,
-              fit: BoxFit.contain,
+          child: const Center(
+            child: Icon(
+              Icons.add,
+              size: 24,
+              color: Colors.white,
             ),
           ),
         ),
@@ -468,7 +513,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         Text(
           text,
           style: GoogleFonts.inter(
-            color: Theme.of(context).colorScheme.onSurface, // THEME: Dynamic text
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 12,
           ),
         ),
@@ -482,14 +527,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor, // THEME: Dynamic card
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).dividerColor), // THEME: Dynamic border
+        border: Border.all(color: Theme.of(context).dividerColor),
         boxShadow: [
           BoxShadow(
             color: Theme.of(context).brightness == Brightness.dark 
                 ? Colors.black.withOpacity(0.3) 
-                : Colors.black.withOpacity(0.05), // THEME: Adaptive shadow
+                : Colors.black.withOpacity(0.05),
             blurRadius: 2,
             offset: const Offset(0, 1),
           ),
@@ -518,7 +563,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 Text(
                   event.title,
                   style: GoogleFonts.inter(
-                    color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
+                    color: Theme.of(context).colorScheme.onBackground,
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                   ),
@@ -529,7 +574,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       ? 'Due: ${event.startTime}'
                       : '${event.startTime} - ${event.endTime}',
                   style: GoogleFonts.inter(
-                    color: Theme.of(context).colorScheme.onSurface, // THEME: Dynamic text
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 14,
                   ),
                 ),
@@ -564,8 +609,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
         return Icons.event;
       case EventType.exam:
         return Icons.quiz;
-      default:
-        return Icons.calendar_today;
     }
   }
 
@@ -577,8 +620,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
         return 'Event';
       case EventType.exam:
         return 'Exam';
-      default:
-        return 'Event';
     }
   }
 

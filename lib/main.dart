@@ -5,7 +5,6 @@ import 'screens/main_menu_screen.dart';
 import 'screens/ins_main_menu_screen.dart';
 import 'screens/registration_screen.dart';
 import 'screens/notes_screen.dart';
-import 'screens/new_note_screen.dart';
 import 'screens/calendar_screen.dart';
 import 'screens/to_do_list_screen.dart';
 import 'screens/qna_wall_screen.dart';
@@ -64,7 +63,6 @@ class MyApp extends StatelessWidget {
               '/main_menu': (context) => const MainMenuScreen(),
               '/ins_main_menu': (context) => const InstructorMainMenuScreen(),
               '/notes': (context) => const NotesScreen(),
-              '/new_note': (context) => const NewNoteScreen(),
               '/new_entry': (context) => const AddEntryScreen(),
               '/calendar': (context) => const CalendarScreen(),
               '/todo': (context) => const TodoListScreen(),

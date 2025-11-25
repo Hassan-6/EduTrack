@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../utils/route_manager.dart';
-import 'new_note_screen.dart';
 import '../utils/theme_provider.dart';
+import '../utils/category_color_helper.dart';
+import '../services/notes_service.dart';
+import '../services/firebase_service.dart';
+import '../models/note.dart' as note_model;
+import '../models/journal_entry.dart';
+import 'new_note_screen.dart';
 
 class NotesScreen extends StatefulWidget {
   const NotesScreen({super.key});
@@ -15,57 +21,97 @@ class NotesScreen extends StatefulWidget {
 class _NotesScreenState extends State<NotesScreen> {
   int _selectedSegment = 0;
   String _selectedFilter = 'All';
-  final List<String> _filters = ['All', 'Math', 'Physics', 'Personal', 'Projects'];
-  
-  final List<Note> _notes = [
-    Note(
-      id: '1',
-      title: 'Calculus Chapter 5',
-      content: 'Integration by parts formula and examples. Remember u-dv = uv - ∫v du...',
-      category: 'Math',
-      timeAgo: '2h ago',
-      categoryColor: const Color(0xFFDBEAFE),
-      textColor: const Color(0xFF2563EB),
-    ),
-    Note(
-      id: '2',
-      title: 'Physics Lab Report',
-      content: 'Experiment on pendulum motion. Data analysis shows period is proportional to square root of length.',
-      category: 'Physics',
-      timeAgo: '1d ago',
-      categoryColor: const Color(0xFFDCFCE7),
-      textColor: const Color(0xFF16A34A),
-    ),
-    Note(
-      id: '3',
-      title: 'Study Schedule',
-      content: 'Week 10 planning: Math exam on Friday, Physics assignment due Monday.',
-      category: 'Personal',
-      timeAgo: '3d ago',
-      categoryColor: const Color(0xFFF3E8FF),
-      textColor: const Color(0xFF9333EA),
-    ),
-  ];
+  List<String> _availableCategories = ['All', 'Personal'];
+  List<note_model.Note> _notes = [];
+  List<note_model.Note> _filteredNotes = [];
+  bool _isLoading = true;
 
-  List<Note> get _filteredNotes {
-    if (_selectedFilter == 'All') {
-      return _notes;
+  @override
+  void initState() {
+    super.initState();
+    _loadAvailableCategories();
+    _loadNotes();
+  }
+
+  Future<void> _loadAvailableCategories() async {
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) return;
+
+      final instructorCourses = await FirebaseService.getInstructorCourses(userId);
+      final studentCourses = await FirebaseService.getStudentEnrolledCourses(userId);
+
+      final courseNames = <String>{};
+      for (var course in instructorCourses) {
+        courseNames.add(course['title'] ?? 'Unknown Course');
+      }
+      for (var course in studentCourses) {
+        courseNames.add(course['title'] ?? 'Unknown Course');
+      }
+
+      if (mounted) {
+        setState(() {
+          _availableCategories = ['All', 'Personal', ...courseNames.toList()];
+        });
+      }
+    } catch (e) {
+      print('Error loading categories: $e');
     }
-    return _notes.where((note) => note.category == _selectedFilter).toList();
+  }
+
+  Future<void> _loadNotes() async {
+    try {
+      final notes = await NotesService.getNotes();
+      if (mounted) {
+        setState(() {
+          _notes = notes;
+          _applyFilter();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading notes: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _applyFilter() {
+    if (_selectedFilter == 'All') {
+      _filteredNotes = _notes;
+    } else {
+      _filteredNotes = _notes.where((note) => note.category == _selectedFilter).toList();
+    }
   }
 
   void _navigateToNewNote() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const NewNoteScreen()),
+      MaterialPageRoute(
+        builder: (context) => NewNoteScreen(
+          availableCategories: _availableCategories,
+          onNoteSaved: () {
+            _loadNotes();
+          },
+        ),
+      ),
     );
   }
 
-  void _viewNoteDetail(Note note) {
+  void _viewNoteDetail(note_model.Note note) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => NoteDetailScreen(note: note),
+        builder: (context) => NoteDetailScreen(
+          note: note,
+          availableCategories: _availableCategories,
+          onNoteSaved: () {
+            _loadNotes();
+          },
+        ),
       ),
     );
   }
@@ -74,10 +120,87 @@ class _NotesScreenState extends State<NotesScreen> {
     Navigator.pushReplacementNamed(context, RouteManager.getMainMenuRoute());
   }
 
+  void _showSearchDialog() {
+    final searchController = TextEditingController();
+    String searchCategory = 'All';
+    
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: Theme.of(context).cardColor,
+          title: Text(
+            'Search Notes',
+            style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: searchController,
+                style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
+                decoration: InputDecoration(
+                  hintText: 'Search by title or content...',
+                  hintStyle: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              DropdownButton<String>(
+                value: searchCategory,
+                isExpanded: true,
+                items: _availableCategories.map((category) {
+                  return DropdownMenuItem(
+                    value: category,
+                    child: Text(category, style: TextStyle(color: Theme.of(context).colorScheme.onBackground)),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setDialogState(() {
+                      searchCategory = value;
+                    });
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel', style: TextStyle(color: Theme.of(context).primaryColor)),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                final results = await NotesService.searchNotes(
+                  query: searchController.text,
+                  category: searchCategory == 'All' ? null : searchCategory,
+                );
+                if (mounted) {
+                  setState(() {
+                    _notes = results;
+                    _selectedFilter = searchCategory;
+                    _applyFilter();
+                  });
+                }
+              },
+              child: Text('Search', style: TextStyle(color: Theme.of(context).primaryColor)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.background,
       body: SafeArea(
@@ -85,28 +208,24 @@ class _NotesScreenState extends State<NotesScreen> {
           children: [
             _buildAppBar(),
             _buildSegmentedControl(themeProvider),
-            
             if (_selectedSegment == 0) ...[
               _buildFilterChips(themeProvider),
               Expanded(child: _buildNotesList()),
             ] else ...[
               Expanded(
                 child: JournalContent(
-                  onAddEntry: _addNewJournalEntry,
+                  onAddEntry: _loadNotes,
                 ),
               ),
             ],
           ],
         ),
       ),
-      
-      floatingActionButton: _selectedSegment == 0 
+      floatingActionButton: _selectedSegment == 0
           ? _buildFloatingActionButton(themeProvider)
           : null,
     );
   }
-
-  void _addNewJournalEntry() {}
 
   Widget _buildAppBar() {
     return Container(
@@ -115,8 +234,8 @@ class _NotesScreenState extends State<NotesScreen> {
         color: Theme.of(context).cardColor,
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).brightness == Brightness.dark 
-                ? Colors.black.withOpacity(0.3) 
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.black.withOpacity(0.3)
                 : const Color(0xFF000000).withOpacity(0.05),
             spreadRadius: 0,
             offset: const Offset(0, 1),
@@ -129,7 +248,7 @@ class _NotesScreenState extends State<NotesScreen> {
         children: [
           GestureDetector(
             onTap: _onBackPressed,
-            child: Container(
+            child: SizedBox(
               width: 86,
               height: 32,
               child: Row(
@@ -152,9 +271,7 @@ class _NotesScreenState extends State<NotesScreen> {
               ),
             ),
           ),
-          
           const Spacer(),
-          
           Text(
             'Notes & Journal',
             style: GoogleFonts.inter(
@@ -163,20 +280,24 @@ class _NotesScreenState extends State<NotesScreen> {
               fontWeight: FontWeight.w600,
             ),
           ),
-          
           const Spacer(),
-          
-          Container(
-            width: 28,
-            height: 36,
-            child: Center(
-              child: Icon(
-                Icons.search,
-                size: 18,
-                color: Theme.of(context).colorScheme.onBackground,
+          if (_selectedSegment == 0)
+            GestureDetector(
+              onTap: _showSearchDialog,
+              child: SizedBox(
+                width: 28,
+                height: 36,
+                child: Center(
+                  child: Icon(
+                    Icons.search,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.onBackground,
+                  ),
+                ),
               ),
-            ),
-          ),
+            )
+          else
+            const SizedBox(width: 28),
         ],
       ),
     );
@@ -189,8 +310,8 @@ class _NotesScreenState extends State<NotesScreen> {
       child: Container(
         height: 52,
         decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark 
-              ? Colors.black.withOpacity(0.2) 
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.black.withOpacity(0.2)
               : const Color(0xFFF3F4F6),
           borderRadius: BorderRadius.circular(16),
         ),
@@ -207,8 +328,8 @@ class _NotesScreenState extends State<NotesScreen> {
                 child: Container(
                   margin: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: _selectedSegment == 0 
-                        ? themeProvider.primaryColor 
+                    color: _selectedSegment == 0
+                        ? themeProvider.primaryColor
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -216,7 +337,9 @@ class _NotesScreenState extends State<NotesScreen> {
                     child: Text(
                       'Notes',
                       style: GoogleFonts.inter(
-                        color: _selectedSegment == 0 ? Colors.white : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                        color: _selectedSegment == 0
+                            ? Colors.white
+                            : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
@@ -225,7 +348,6 @@ class _NotesScreenState extends State<NotesScreen> {
                 ),
               ),
             ),
-            
             Expanded(
               child: InkWell(
                 borderRadius: BorderRadius.circular(12),
@@ -237,8 +359,8 @@ class _NotesScreenState extends State<NotesScreen> {
                 child: Container(
                   margin: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: _selectedSegment == 1 
-                        ? themeProvider.primaryColor 
+                    color: _selectedSegment == 1
+                        ? themeProvider.primaryColor
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -246,7 +368,9 @@ class _NotesScreenState extends State<NotesScreen> {
                     child: Text(
                       'Journal',
                       style: GoogleFonts.inter(
-                        color: _selectedSegment == 1 ? Colors.white : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                        color: _selectedSegment == 1
+                            ? Colors.white
+                            : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
@@ -268,7 +392,7 @@ class _NotesScreenState extends State<NotesScreen> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 24),
         child: Row(
-          children: _filters.map((filter) {
+          children: _availableCategories.map((filter) {
             final isSelected = _selectedFilter == filter;
             return Padding(
               padding: const EdgeInsets.only(right: 8),
@@ -276,20 +400,27 @@ class _NotesScreenState extends State<NotesScreen> {
                 onTap: () {
                   setState(() {
                     _selectedFilter = filter;
+                    _applyFilter();
                   });
                 },
                 child: Container(
                   height: 36,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
-                    color: isSelected ? themeProvider.primaryColor : Theme.of(context).brightness == Brightness.dark ? Colors.black.withOpacity(0.2) : const Color(0xFFF3F4F6),
+                    color: isSelected
+                        ? themeProvider.primaryColor
+                        : Theme.of(context).brightness == Brightness.dark
+                            ? Colors.black.withOpacity(0.2)
+                            : const Color(0xFFF3F4F6),
                     borderRadius: BorderRadius.circular(9999),
                   ),
                   child: Center(
                     child: Text(
                       filter,
                       style: GoogleFonts.inter(
-                        color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                        color: isSelected
+                            ? Colors.white
+                            : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
@@ -305,6 +436,40 @@ class _NotesScreenState extends State<NotesScreen> {
   }
 
   Widget _buildNotesList() {
+    if (_isLoading) {
+      return Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(
+            Provider.of<ThemeProvider>(context).primaryColor,
+          ),
+        ),
+      );
+    }
+
+    if (_filteredNotes.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.note_outlined,
+              size: 64,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No notes found',
+              style: GoogleFonts.inter(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       itemCount: _filteredNotes.length,
@@ -318,7 +483,11 @@ class _NotesScreenState extends State<NotesScreen> {
     );
   }
 
-  Widget _buildNoteCard(Note note) {
+  Widget _buildNoteCard(note_model.Note note) {
+    final categoryColor = CategoryColorHelper.getCategoryBackgroundColor(note.category);
+    final textColor = CategoryColorHelper.getCategoryTextColor(note.category);
+    final timeAgo = _getTimeAgo(note.updatedAt);
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 16),
@@ -329,8 +498,8 @@ class _NotesScreenState extends State<NotesScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).brightness == Brightness.dark 
-                ? Colors.black.withOpacity(0.3) 
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.black.withOpacity(0.3)
                 : const Color(0xFF000000).withOpacity(0.05),
             spreadRadius: 0,
             offset: const Offset(0, 1),
@@ -356,7 +525,7 @@ class _NotesScreenState extends State<NotesScreen> {
                 ),
               ),
               Text(
-                note.timeAgo,
+                timeAgo,
                 style: GoogleFonts.inter(
                   color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                   fontSize: 12,
@@ -365,9 +534,7 @@ class _NotesScreenState extends State<NotesScreen> {
               ),
             ],
           ),
-          
           const SizedBox(height: 8),
-          
           Text(
             note.content,
             style: GoogleFonts.inter(
@@ -377,27 +544,24 @@ class _NotesScreenState extends State<NotesScreen> {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          
           const SizedBox(height: 16),
-          
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: note.categoryColor,
+                  color: categoryColor,
                   borderRadius: BorderRadius.circular(9999),
                 ),
                 child: Text(
                   note.category,
                   style: GoogleFonts.inter(
-                    color: note.textColor,
+                    color: textColor,
                     fontSize: 12,
                   ),
                 ),
               ),
-              
               GestureDetector(
                 onTap: () {
                   _showNoteOptions(note);
@@ -454,7 +618,7 @@ class _NotesScreenState extends State<NotesScreen> {
     );
   }
 
-  void _showNoteOptions(Note note) {
+  void _showNoteOptions(note_model.Note note) {
     showModalBottomSheet(
       context: context,
       builder: (context) {
@@ -464,7 +628,10 @@ class _NotesScreenState extends State<NotesScreen> {
             children: [
               ListTile(
                 leading: Icon(Icons.edit, color: Theme.of(context).primaryColor),
-                title: Text('Edit Note', style: TextStyle(color: Theme.of(context).colorScheme.onBackground)),
+                title: Text(
+                  'Edit Note',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
+                ),
                 onTap: () {
                   Navigator.pop(context);
                   _viewNoteDetail(note);
@@ -472,7 +639,10 @@ class _NotesScreenState extends State<NotesScreen> {
               ),
               ListTile(
                 leading: Icon(Icons.delete, color: Theme.of(context).primaryColor),
-                title: Text('Delete Note', style: TextStyle(color: Theme.of(context).colorScheme.onBackground)),
+                title: Text(
+                  'Delete Note',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
+                ),
                 onTap: () {
                   Navigator.pop(context);
                   _deleteNote(note);
@@ -480,7 +650,10 @@ class _NotesScreenState extends State<NotesScreen> {
               ),
               ListTile(
                 leading: Icon(Icons.share, color: Theme.of(context).primaryColor),
-                title: Text('Share Note', style: TextStyle(color: Theme.of(context).colorScheme.onBackground)),
+                title: Text(
+                  'Share Note',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
+                ),
                 onTap: () {
                   Navigator.pop(context);
                 },
@@ -492,24 +665,47 @@ class _NotesScreenState extends State<NotesScreen> {
     );
   }
 
-  void _deleteNote(Note note) {
+  void _deleteNote(note_model.Note note) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: Theme.of(context).cardColor,
-        title: Text('Delete Note', style: TextStyle(color: Theme.of(context).colorScheme.onBackground)),
-        content: Text('Are you sure you want to delete this note?', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+        title: Text(
+          'Delete Note',
+          style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
+        ),
+        content: Text(
+          'Are you sure you want to delete this note?',
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: TextStyle(color: Theme.of(context).primaryColor)),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: Theme.of(context).primaryColor),
+            ),
           ),
           TextButton(
-            onPressed: () {
-              setState(() {
-                _notes.remove(note);
-              });
+            onPressed: () async {
               Navigator.pop(context);
+              try {
+                await NotesService.deleteNote(note.id);
+                _loadNotes();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Note deleted successfully'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error deleting note: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
@@ -517,9 +713,25 @@ class _NotesScreenState extends State<NotesScreen> {
       ),
     );
   }
+
+  String _getTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays}d ago';
+    } else {
+      return '${dateTime.month}/${dateTime.day}/${dateTime.year}';
+    }
+  }
 }
 
-// Journal Content Widget (Always Editable)
+// ==================== JOURNAL CONTENT WIDGET ====================
+
 class JournalContent extends StatefulWidget {
   final VoidCallback onAddEntry;
 
@@ -531,119 +743,142 @@ class JournalContent extends StatefulWidget {
 
 class _JournalContentState extends State<JournalContent> {
   int _currentPage = 0;
-  final List<JournalEntry> _journalEntries = [
-    JournalEntry(
-      id: '1',
-      title: 'Lorem Ipsum',
-      content: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.',
-      createdAt: DateTime(2025, 10, 5, 11, 24),
-      isFavorited: false,
-    ),
-    JournalEntry(
-      id: '2',
-      title: 'Reflections',
-      content: 'Today was a productive day. I completed my math assignment and started working on the physics project. Need to remember to review chapter 5 for the upcoming exam.',
-      createdAt: DateTime(2025, 10, 4, 14, 30),
-      isFavorited: true,
-    ),
-    JournalEntry(
-      id: '3',
-      title: 'Weekend Plans',
-      content: 'Planning for the weekend:\n• Complete physics lab report\n• Study for math quiz\n• Work on programming project\n• Exercise routine',
-      createdAt: DateTime(2025, 10, 3, 9, 15),
-      isFavorited: false,
-    ),
-    JournalEntry(
-      id: '4',
-      title: 'Book Recommendations',
-      content: 'Books to read:\n- "Clean Code" by Robert Martin\n- "Design Patterns" by Gang of Four\n- "The Pragmatic Programmer"',
-      createdAt: DateTime(2025, 10, 2, 16, 45),
-      isFavorited: false,
-    ),
-    JournalEntry(
-      id: '5',
-      title: 'Project Ideas',
-      content: 'Mobile app development ideas:\n1. Student productivity tracker\n2. AI-powered study assistant\n3. Collaborative note-taking platform',
-      createdAt: DateTime(2025, 10, 1, 13, 20),
-      isFavorited: true,
-    ),
-    JournalEntry(
-      id: '6',
-      title: 'Learning Goals',
-      content: 'Skills to learn this semester:\n• Flutter advanced concepts\n• Firebase integration\n• UI/UX design principles\n• API development',
-      createdAt: DateTime(2025, 9, 30, 10, 0),
-      isFavorited: false,
-    ),
-  ];
+  List<JournalEntry> _journalEntries = [];
+  List<JournalEntry> _displayedEntries = [];
+  bool _isLoading = true;
+  bool _showFavoritesOnly = false;
 
   final TextEditingController _contentController = TextEditingController();
   final TextEditingController _titleController = TextEditingController();
-  
-  // Text formatting state
-  bool _isBold = false;
-  bool _isItalic = false;
-  bool _isUnderline = false;
 
   @override
   void initState() {
     super.initState();
-    _loadCurrentEntry();
+    _loadJournalEntries();
   }
 
-  void _loadCurrentEntry() {
-    if (_journalEntries.isNotEmpty) {
-      _titleController.text = _journalEntries[_currentPage].title;
-      _contentController.text = _journalEntries[_currentPage].content;
+  Future<void> _loadJournalEntries() async {
+    try {
+      final entries = await NotesService.getJournalEntries();
+      if (mounted) {
+        setState(() {
+          _journalEntries = entries;
+          _updateDisplayedEntries();
+          _currentPage = _displayedEntries.isEmpty ? 0 : _displayedEntries.length - 1;
+          _isLoading = false;
+          _loadCurrentEntry();
+        });
+      }
+    } catch (e) {
+      print('Error loading journal entries: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  void _saveChanges() {
-    if (_journalEntries.isNotEmpty) {
-      setState(() {
-        _journalEntries[_currentPage].title = _titleController.text;
-        _journalEntries[_currentPage].content = _contentController.text;
-        _journalEntries[_currentPage].createdAt = DateTime.now();
-      });
+  void _updateDisplayedEntries() {
+    if (_showFavoritesOnly) {
+      _displayedEntries = _journalEntries.where((entry) => entry.isFavorited).toList();
+    } else {
+      _displayedEntries = _journalEntries;
     }
   }
 
-  void _addNewEntry() {
-    final newEntry = JournalEntry(
-      id: '${_journalEntries.length + 1}',
-      title: 'New Journal Entry',
-      content: 'Start writing your thoughts here...',
-      createdAt: DateTime.now(),
-      isFavorited: false,
-    );
-    
+  void _toggleFavoritesFilter() {
     setState(() {
-      _journalEntries.insert(0, newEntry);
-      _currentPage = 0;
+      _showFavoritesOnly = !_showFavoritesOnly;
+      _updateDisplayedEntries();
+      _currentPage = _displayedEntries.isEmpty ? 0 : 0;
       _loadCurrentEntry();
     });
   }
 
-  void _toggleFavorite() {
-    if (_journalEntries.isNotEmpty) {
+  void _loadCurrentEntry() {
+    if (_displayedEntries.isNotEmpty && _currentPage < _displayedEntries.length) {
+      _titleController.text = _displayedEntries[_currentPage].title;
+      _contentController.text = _displayedEntries[_currentPage].content;
+    } else {
+      _titleController.clear();
+      _contentController.clear();
+    }
+  }
+
+  Future<void> _saveChanges() async {
+    if (_displayedEntries.isEmpty || _currentPage >= _displayedEntries.length) return;
+
+    final displayedEntry = _displayedEntries[_currentPage];
+    final actualEntry = _journalEntries.firstWhere(
+      (entry) => entry.id == displayedEntry.id,
+      orElse: () => displayedEntry,
+    );
+    try {
+      await NotesService.updateJournalEntry(
+        entryId: actualEntry.id,
+        title: _titleController.text,
+        content: _contentController.text,
+      );
+    } catch (e) {
+      print('Error saving journal entry: $e');
+    }
+  }
+
+  Future<void> _addNewEntry() async {
+    try {
+      await NotesService.createJournalEntry(
+        title: '',
+        content: '',
+      );
+      _loadJournalEntries();
+      widget.onAddEntry();
+    } catch (e) {
+      print('Error creating journal entry: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error creating entry: $e')),
+      );
+    }
+  }
+
+  void _toggleFavorite() async {
+    if (_displayedEntries.isEmpty || _currentPage >= _displayedEntries.length) return;
+
+    final entry = _displayedEntries[_currentPage];
+    try {
+      await NotesService.toggleJournalFavorite(entry.id, entry.isFavorited);
       setState(() {
-        _journalEntries[_currentPage].isFavorited = !_journalEntries[_currentPage].isFavorited;
+        final idx = _journalEntries.indexOf(entry);
+        _journalEntries[idx] = entry.copyWith(isFavorited: !entry.isFavorited);
+        _updateDisplayedEntries();
       });
+    } catch (e) {
+      print('Error toggling favorite: $e');
     }
   }
 
   void _deleteCurrentEntry() {
-    if (_journalEntries.isEmpty) return;
+    if (_displayedEntries.isEmpty) return;
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).cardColor, // THEME: Dynamic background
-        title: Text('Delete Journal Entry', style: TextStyle(color: Theme.of(context).colorScheme.onBackground)),
-        content: Text('Are you sure you want to delete this journal entry? This action cannot be undone.', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+        backgroundColor: Theme.of(context).cardColor,
+        title: Text(
+          'Delete Journal Entry',
+          style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
+        ),
+        content: Text(
+          'Are you sure you want to delete this journal entry?',
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: TextStyle(color: Theme.of(context).primaryColor)),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: Theme.of(context).primaryColor),
+            ),
           ),
           TextButton(
             onPressed: () {
@@ -657,42 +892,116 @@ class _JournalContentState extends State<JournalContent> {
     );
   }
 
-  void _performDelete() {
-    if (_journalEntries.isEmpty) return;
+  Future<void> _performDelete() async {
+    if (_displayedEntries.isEmpty || _currentPage >= _displayedEntries.length) return;
 
-    setState(() {
-      _journalEntries.removeAt(_currentPage);
-      
-      if (_journalEntries.isEmpty) {
-        _currentPage = 0;
-        _titleController.clear();
-        _contentController.clear();
-      } else if (_currentPage >= _journalEntries.length) {
-        _currentPage = _journalEntries.length - 1;
-        _loadCurrentEntry();
-      } else {
-        _loadCurrentEntry();
-      }
-    });
+    try {
+      final entryToDelete = _displayedEntries[_currentPage];
+      await NotesService.deleteJournalEntry(entryToDelete.id);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Journal entry deleted'),
-        backgroundColor: Colors.green,
-      ),
-    );
+      setState(() {
+        _journalEntries.remove(entryToDelete);
+        _updateDisplayedEntries();
+
+        if (_displayedEntries.isEmpty) {
+          _currentPage = 0;
+          _titleController.clear();
+          _contentController.clear();
+        } else if (_currentPage >= _displayedEntries.length) {
+          _currentPage = _displayedEntries.length - 1;
+          _loadCurrentEntry();
+        } else {
+          _loadCurrentEntry();
+        }
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Journal entry deleted'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      print('Error deleting: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error deleting: $e')),
+      );
+    }
   }
 
   void _applyBoldFormatting() {
-    _applyFormatting('**', '**');
+    _applyTextStyle('bold');
   }
 
   void _applyItalicFormatting() {
-    _applyFormatting('*', '*');
+    _applyTextStyle('italic');
   }
 
   void _applyUnderlineFormatting() {
-    _applyFormatting('<u>', '</u>');
+    _applyTextStyle('underline');
+  }
+
+  void _applyTextStyle(String style) {
+    final selection = _contentController.selection;
+    if (!selection.isValid || selection.isCollapsed) return;
+
+    final text = _contentController.text;
+    final selectedText = selection.textInside(text);
+    String styledText;
+
+    switch (style) {
+      case 'bold':
+        styledText = _toggleStyle(selectedText, '\u0001', '\u0002');
+        break;
+      case 'italic':
+        styledText = _toggleStyle(selectedText, '\u0003', '\u0004');
+        break;
+      case 'underline':
+        styledText = _toggleStyle(selectedText, '\u0005', '\u0006');
+        break;
+      default:
+        return;
+    }
+
+    final newText = text.replaceRange(selection.start, selection.end, styledText);
+    _contentController.text = newText;
+    _contentController.selection = TextSelection(
+      baseOffset: selection.start,
+      extentOffset: selection.start + styledText.length,
+    );
+    setState(() {});
+    _saveChanges();
+  }
+
+  String _toggleStyle(String text, String startMarker, String endMarker) {
+    if (text.startsWith(startMarker) && text.endsWith(endMarker)) {
+      return text.substring(1, text.length - 1);
+    }
+    return '$startMarker$text$endMarker';
+  }
+
+  Widget _buildStyledContentField() {
+    return TextField(
+      controller: _contentController,
+      onChanged: (value) => _saveChanges(),
+      maxLines: null,
+      expands: true,
+      textAlignVertical: TextAlignVertical.top,
+      style: GoogleFonts.inter(
+        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+        fontSize: 14,
+        height: 1.4,
+      ),
+      decoration: InputDecoration(
+        border: InputBorder.none,
+        hintText: _contentController.text.isEmpty ? 'Start writing your journal entry...' : '',
+        hintStyle: TextStyle(
+          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+        ),
+        contentPadding: EdgeInsets.zero,
+        isDense: true,
+      ),
+    );
   }
 
   void _applyListFormatting() {
@@ -702,10 +1011,10 @@ class _JournalContentState extends State<JournalContent> {
       final selectedText = selection.textInside(text);
       final lines = selectedText.split('\n');
       final formattedLines = lines.map((line) => '• $line').join('\n');
-      
+
       final newText = text.replaceRange(selection.start, selection.end, formattedLines);
       _contentController.text = newText;
-      
+
       final newSelection = TextSelection(
         baseOffset: selection.start,
         extentOffset: selection.start + formattedLines.length,
@@ -718,12 +1027,662 @@ class _JournalContentState extends State<JournalContent> {
       _contentController.text = newText;
       _contentController.selection = TextSelection.collapsed(offset: cursorPosition + 3);
     }
+    _saveChanges();
   }
 
-  void _applyFormatting(String prefix, String suffix) {
+  @override
+  Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
+    if (_isLoading) {
+      return Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(themeProvider.primaryColor),
+        ),
+      );
+    }
+
+    if (_journalEntries.isEmpty) {
+      return _buildEmptyState(themeProvider);
+    }
+
+    return Column(
+      children: [
+        _buildJournalHeader(),
+        _buildPageIndicator(),
+        Expanded(
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.black.withOpacity(0.3)
+                      : const Color(0xFF000000).withOpacity(0.08),
+                  spreadRadius: 0,
+                  offset: const Offset(0, 1),
+                  blurRadius: 4,
+                ),
+              ],
+            ),
+            child: _buildJournalEntry(),
+          ),
+        ),
+        _buildToolbar(),
+      ],
+    );
+  }
+
+  Widget _buildJournalHeader() {
+    return Container(
+      height: 50,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          SizedBox(width: 40),
+          Text(
+            'Journal Entries',
+            style: GoogleFonts.inter(
+              color: Theme.of(context).colorScheme.onBackground,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          GestureDetector(
+            onTap: _toggleFavoritesFilter,
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.black.withOpacity(0.2)
+                    : const Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                _showFavoritesOnly ? Icons.favorite : Icons.favorite_outline,
+                size: 18,
+                color: _showFavoritesOnly ? Colors.red : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPageIndicator() {
+    final entries = _displayedEntries;
+    return Container(
+      height: 60,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          if (_currentPage > 0)
+            GestureDetector(
+              onTap: () async {
+                await _saveChanges();
+                setState(() {
+                  _currentPage--;
+                  _loadCurrentEntry();
+                });
+              },
+              child: Icon(
+                Icons.chevron_left,
+                size: 20,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              ),
+            )
+          else
+            const SizedBox(width: 20),
+          Expanded(
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: entries.length,
+              itemBuilder: (context, index) {
+                final actualIndex = _journalEntries.indexOf(entries[index]);
+                return GestureDetector(
+                  onTap: () async {
+                    await _saveChanges();
+                    setState(() {
+                      _currentPage = index;
+                      _loadCurrentEntry();
+                    });
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _currentPage == index
+                          ? Provider.of<ThemeProvider>(context).primaryColor
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${actualIndex + 1}',
+                      style: GoogleFonts.inter(
+                        color: _currentPage == index
+                            ? Colors.white
+                            : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          if (_currentPage < entries.length - 1)
+            GestureDetector(
+              onTap: () async {
+                await _saveChanges();
+                setState(() {
+                  _currentPage++;
+                  _loadCurrentEntry();
+                });
+              },
+              child: Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              ),
+            )
+          else
+            const SizedBox(width: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildJournalEntry() {
+    if (_displayedEntries.isEmpty) {
+      return Center(
+        child: Text(
+          'No entries',
+          style: GoogleFonts.inter(
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+          ),
+        ),
+      );
+    }
+    final entry = _displayedEntries[_currentPage];
+    final actualIndex = _journalEntries.indexOf(entry);
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _titleController,
+            onChanged: (value) => _saveChanges(),
+            style: GoogleFonts.inter(
+              color: Theme.of(context).colorScheme.onBackground,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              height: 1.2,
+            ),
+            decoration: InputDecoration(
+              border: InputBorder.none,
+              hintText: 'Journal Entry Title',
+              hintStyle: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+              ),
+              contentPadding: EdgeInsets.zero,
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            height: 1,
+            color: Theme.of(context).dividerColor,
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: _buildStyledContentField(),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            height: 1,
+            color: Theme.of(context).dividerColor,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Entry ${actualIndex + 1} of ${_journalEntries.length} • ${_formatDate(entry.updatedAt)}',
+            style: GoogleFonts.inter(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+              fontSize: 10,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToolbar() {
+    final currentEntry = _displayedEntries.isNotEmpty && _currentPage < _displayedEntries.length
+        ? _displayedEntries[_currentPage]
+        : null;
+    
+    return Container(
+      height: 100,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildCompactToolbarButton(Icons.format_bold, _applyBoldFormatting),
+              _buildCompactToolbarButton(Icons.format_italic, _applyItalicFormatting),
+              _buildCompactToolbarButton(Icons.format_underlined, _applyUnderlineFormatting),
+              _buildCompactToolbarButton(Icons.format_list_bulleted, _applyListFormatting),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              if (currentEntry != null)
+                _buildCompactToolbarButton(
+                  currentEntry.isFavorited ? Icons.favorite : Icons.favorite_border,
+                  _toggleFavorite,
+                  color: currentEntry.isFavorited ? Colors.red : null,
+                )
+              else
+                _buildCompactToolbarButton(Icons.favorite_border, () {}),
+              _buildCompactToolbarButton(Icons.add, _addNewEntry),
+              _buildCompactToolbarButton(Icons.delete_outline, _deleteCurrentEntry, color: Colors.red),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactToolbarButton(
+    IconData icon,
+    VoidCallback onTap, {
+    Color? color,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.black.withOpacity(0.2)
+              : const Color(0xFFF3F4F6),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(
+          icon,
+          size: 18,
+          color: color ?? Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(ThemeProvider themeProvider) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.book,
+            size: 64,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No Journal Entries',
+            style: GoogleFonts.inter(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Start writing your first journal entry',
+            style: GoogleFonts.inter(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: _addNewEntry,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: themeProvider.primaryColor,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Create First Entry'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _contentController.dispose();
+    super.dispose();
+  }
+}
+
+// ==================== NOTE DETAIL SCREEN ====================
+
+class NoteDetailScreen extends StatefulWidget {
+  final note_model.Note note;
+  final List<String> availableCategories;
+  final VoidCallback onNoteSaved;
+
+  const NoteDetailScreen({
+    super.key,
+    required this.note,
+    required this.availableCategories,
+    required this.onNoteSaved,
+  });
+
+  @override
+  State<NoteDetailScreen> createState() => _NoteDetailScreenState();
+}
+
+class _NoteDetailScreenState extends State<NoteDetailScreen> {
+  late TextEditingController _contentController;
+  late TextEditingController _titleController;
+  late String _selectedCategory;
+  bool _isEditing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.note.title);
+    _contentController = TextEditingController(text: widget.note.content);
+    _selectedCategory = widget.note.category;
+  }
+
+  Future<void> _saveNote() async {
+    if (_titleController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Title cannot be empty')),
+      );
+      return;
+    }
+
+    try {
+      await NotesService.updateNote(
+        noteId: widget.note.id,
+        title: _titleController.text,
+        content: _contentController.text,
+        category: _selectedCategory,
+      );
+
+      widget.onNoteSaved();
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Note saved successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving note: $e')),
+        );
+      }
+    }
+  }
+
+  void _toggleEdit() {
+    if (_isEditing) {
+      // Save when exiting edit mode
+      _saveNote();
+    } else {
+      // Enter edit mode
+      setState(() {
+        _isEditing = true;
+      });
+    }
+  }
+
+  void _onBackPressed() {
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final categoryColor = CategoryColorHelper.getCategoryBackgroundColor(_selectedCategory);
+    final textColor = CategoryColorHelper.getCategoryTextColor(_selectedCategory);
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.background,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              height: 72,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.black.withOpacity(0.3)
+                        : const Color(0x0C000000),
+                    spreadRadius: 0,
+                    offset: const Offset(0, 1),
+                    blurRadius: 2,
+                  )
+                ],
+              ),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: _onBackPressed,
+                    child: SizedBox(
+                      width: 86,
+                      height: 32,
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.arrow_back_ios,
+                            size: 11,
+                            color: Theme.of(context).colorScheme.onBackground,
+                          ),
+                          const SizedBox(width: 9),
+                          Text(
+                            'Back',
+                            style: GoogleFonts.inter(
+                              color: Theme.of(context).colorScheme.onBackground,
+                              fontSize: 16,
+                              height: 1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'Note Details',
+                    style: GoogleFonts.inter(
+                      color: Theme.of(context).colorScheme.onBackground,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: _toggleEdit,
+                    icon: Icon(
+                      _isEditing ? Icons.save : Icons.edit,
+                      color: Theme.of(context).colorScheme.onBackground,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.black.withOpacity(0.3)
+                          : const Color(0xFF000000).withOpacity(0.1),
+                      spreadRadius: 0,
+                      offset: const Offset(0, 2),
+                      blurRadius: 8,
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_isEditing)
+                        TextField(
+                          controller: _titleController,
+                          style: GoogleFonts.inter(
+                            color: Theme.of(context).colorScheme.onBackground,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            hintText: 'Note Title',
+                            hintStyle: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                            ),
+                          ),
+                        )
+                      else
+                        Text(
+                          _titleController.text,
+                          style: GoogleFonts.inter(
+                            color: Theme.of(context).colorScheme.onBackground,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      const SizedBox(height: 16),
+                      if (_isEditing)
+                        DropdownButton<String>(
+                          value: _selectedCategory,
+                          items: widget.availableCategories.map((category) {
+                            return DropdownMenuItem(
+                              value: category,
+                              child: Text(
+                                category,
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.onBackground,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() {
+                                _selectedCategory = value;
+                              });
+                            }
+                          },
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: categoryColor,
+                            borderRadius: BorderRadius.circular(9999),
+                          ),
+                          child: Text(
+                            _selectedCategory,
+                            style: GoogleFonts.inter(
+                              color: textColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 24),
+                      Expanded(
+                        child: _isEditing
+                            ? Column(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _contentController,
+                                      maxLines: null,
+                                      expands: true,
+                                      textAlignVertical: TextAlignVertical.top,
+                                      style: GoogleFonts.inter(
+                                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                                        fontSize: 16,
+                                        height: 1.6,
+                                      ),
+                                      decoration: InputDecoration(
+                                        border: InputBorder.none,
+                                        hintText: 'Start writing your note...',
+                                        hintStyle: TextStyle(
+                                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _buildNoteFormattingToolbar(),
+                                ],
+                              )
+                            : SingleChildScrollView(
+                                child: Text(
+                                  _contentController.text,
+                                  style: GoogleFonts.inter(
+                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                                    fontSize: 16,
+                                    height: 1.6,
+                                  ),
+                                ),
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _applyNoteFormatting(String prefix, String suffix) {
     final selection = _contentController.selection;
     if (!selection.isValid || selection.isCollapsed) {
-      // Insert formatting at cursor position
       final cursorPosition = _contentController.selection.baseOffset;
       final text = _contentController.text;
       final newText = '${text.substring(0, cursorPosition)}$prefix$suffix${text.substring(cursorPosition)}';
@@ -734,7 +1693,7 @@ class _JournalContentState extends State<JournalContent> {
 
     final text = _contentController.text;
     final selectedText = selection.textInside(text);
-    
+
     if (selectedText.startsWith(prefix) && selectedText.endsWith(suffix)) {
       final unformattedText = selectedText.substring(prefix.length, selectedText.length - suffix.length);
       final newText = text.replaceRange(selection.start, selection.end, unformattedText);
@@ -754,598 +1713,47 @@ class _JournalContentState extends State<JournalContent> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-
-    if (_journalEntries.isEmpty) {
-      return _buildEmptyState(themeProvider);
-    }
-
-    return Column(
-      children: [
-        Container(
-          height: 60,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              if (_currentPage > 0)
-                GestureDetector(
-                  onTap: () {
-                    _saveChanges();
-                    setState(() {
-                      _currentPage--;
-                      _loadCurrentEntry();
-                    });
-                  },
-                  child: Icon(Icons.chevron_left, size: 20, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)), // THEME: Dynamic icon
-                )
-              else
-                const SizedBox(width: 20),
-                
-              Expanded(
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _journalEntries.length,
-                  itemBuilder: (context, index) {
-                    return GestureDetector(
-                      onTap: () {
-                        _saveChanges();
-                        setState(() {
-                          _currentPage = index;
-                          _loadCurrentEntry();
-                        });
-                      },
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 3),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: _currentPage == index 
-                              ? themeProvider.primaryColor // THEME: Dynamic active color
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          '${index + 1}',
-                          style: GoogleFonts.inter(
-                            color: _currentPage == index ? Colors.white : Theme.of(context).colorScheme.onSurface.withOpacity(0.6), // THEME: Dynamic text
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              
-              if (_currentPage < _journalEntries.length - 1)
-                GestureDetector(
-                  onTap: () {
-                    _saveChanges();
-                    setState(() {
-                      _currentPage++;
-                      _loadCurrentEntry();
-                    });
-                  },
-                  child: Icon(Icons.chevron_right, size: 20, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)), // THEME: Dynamic icon
-                )
-              else
-                const SizedBox(width: 20),
-            ],
-          ),
-        ),
-        
-        Expanded(
-          child: Container(
-            margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor, // THEME: Dynamic card color
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Theme.of(context).brightness == Brightness.dark 
-                      ? Colors.black.withOpacity(0.3) 
-                      : const Color(0xFF000000).withOpacity(0.08), // THEME: Adaptive shadow
-                  spreadRadius: 0,
-                  offset: const Offset(0, 1),
-                  blurRadius: 4,
-                ),
-              ],
-            ),
-            child: _buildJournalEntry(),
-          ),
-        ),
-        
-        Container(
-          height: 100,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor, // THEME: Dynamic background
-            border: Border.all(color: Theme.of(context).dividerColor), // THEME: Dynamic border
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildCompactToolbarButton(Icons.format_bold, _applyBoldFormatting, isActive: _isBold),
-                  _buildCompactToolbarButton(Icons.format_italic, _applyItalicFormatting, isActive: _isItalic),
-                  _buildCompactToolbarButton(Icons.format_underlined, _applyUnderlineFormatting, isActive: _isUnderline),
-                  _buildCompactToolbarButton(Icons.format_list_bulleted, _applyListFormatting),
-                ],
-              ),
-              
-              const SizedBox(height: 6),
-              
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildCompactToolbarButton(
-                    _journalEntries[_currentPage].isFavorited ? Icons.favorite : Icons.favorite_border,
-                    _toggleFavorite,
-                    color: _journalEntries[_currentPage].isFavorited ? Colors.red : null,
-                  ),
-                  _buildCompactToolbarButton(Icons.add, _addNewEntry),
-                  _buildCompactToolbarButton(Icons.delete_outline, _deleteCurrentEntry, color: Colors.red),
-                  _buildCompactToolbarButton(Icons.more_vert, () {}),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEmptyState(ThemeProvider themeProvider) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildNoteFormattingToolbar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          Icon(Icons.book, size: 64, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)), // THEME: Dynamic icon
-          const SizedBox(height: 16),
-          Text(
-            'No Journal Entries',
-            style: GoogleFonts.inter(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), // THEME: Dynamic text
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Start writing your first journal entry',
-            style: GoogleFonts.inter(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5), // THEME: Dynamic text
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: _addNewEntry,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: themeProvider.primaryColor, // THEME: Dynamic button color
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Create First Entry'),
-          ),
+          _buildFormatButton(Icons.format_bold, () => _applyNoteFormatting('**', '**')),
+          const SizedBox(width: 8),
+          _buildFormatButton(Icons.format_italic, () => _applyNoteFormatting('*', '*')),
+          const SizedBox(width: 8),
+          _buildFormatButton(Icons.format_underlined, () => _applyNoteFormatting('__', '__')),
         ],
       ),
     );
   }
 
-  Widget _buildJournalEntry() {
-    final entry = _journalEntries[_currentPage];
-    
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            controller: _titleController,
-            onChanged: (value) => _saveChanges(),
-            style: GoogleFonts.inter(
-              color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text color
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              height: 1.2,
-            ),
-            decoration: InputDecoration(
-              border: InputBorder.none,
-              hintText: 'Journal Entry Title',
-              hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)), // THEME: Dynamic hint
-              contentPadding: EdgeInsets.zero,
-              isDense: true,
-            ),
+  Widget _buildFormatButton(IconData icon, VoidCallback onPressed) {
+    return SizedBox(
+      width: 36,
+      height: 36,
+      child: Material(
+        color: Theme.of(context).brightness == Brightness.dark
+            ? Colors.black.withOpacity(0.2)
+            : const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(6),
+        child: InkWell(
+          onTap: onPressed,
+          child: Icon(
+            icon,
+            size: 18,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
           ),
-          
-          const SizedBox(height: 12),
-          
-          Container(
-            height: 1,
-            color: Theme.of(context).dividerColor, // THEME: Dynamic divider
-          ),
-          
-          const SizedBox(height: 12),
-          
-          Expanded(
-            child: TextField(
-              controller: _contentController,
-              onChanged: (value) => _saveChanges(),
-              maxLines: null,
-              expands: true,
-              textAlignVertical: TextAlignVertical.top,
-              style: GoogleFonts.inter(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8), // THEME: Dynamic text color
-                fontSize: 14,
-                height: 1.4,
-              ),
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                hintText: 'Start writing your journal entry...',
-                hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)), // THEME: Dynamic hint
-                contentPadding: EdgeInsets.zero,
-                isDense: true,
-              ),
-            ),
-          ),
-          
-          const SizedBox(height: 12),
-          
-          Container(
-            height: 1,
-            color: Theme.of(context).dividerColor, // THEME: Dynamic divider
-          ),
-          
-          const SizedBox(height: 8),
-          
-          Text(
-            'Entry ${_currentPage + 1} of ${_journalEntries.length} • Created: ${_formatDate(entry.createdAt)}',
-            style: GoogleFonts.inter(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5), // THEME: Dynamic text
-              fontSize: 10,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCompactToolbarButton(IconData icon, VoidCallback onTap, {Color? color, bool isActive = false}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: isActive ? Theme.of(context).primaryColor.withOpacity(0.2) : Theme.of(context).brightness == Brightness.dark ? Colors.black.withOpacity(0.2) : const Color(0xFFF3F4F6), // THEME: Adaptive background
-          borderRadius: BorderRadius.circular(6),
-          border: isActive ? Border.all(color: Theme.of(context).primaryColor) : null, // THEME: Dynamic border
-        ),
-        child: Icon(
-          icon,
-          size: 18,
-          color: color ?? (isActive ? Theme.of(context).primaryColor : Theme.of(context).colorScheme.onSurface.withOpacity(0.6)), // THEME: Dynamic icon color
         ),
       ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')} ${date.hour < 12 ? 'AM' : 'PM'}';
-  }
-}
-
-// Note Detail Screen (No Bottom Nav Bar)
-class NoteDetailScreen extends StatefulWidget {
-  final Note note;
-
-  const NoteDetailScreen({super.key, required this.note});
-
-  @override
-  State<NoteDetailScreen> createState() => _NoteDetailScreenState();
-}
-
-class _NoteDetailScreenState extends State<NoteDetailScreen> {
-  final TextEditingController _contentController = TextEditingController();
-  final TextEditingController _titleController = TextEditingController();
-  bool _isEditing = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _titleController.text = widget.note.title;
-    _contentController.text = widget.note.content;
-  }
-
-  void _toggleEdit() {
-    setState(() {
-      _isEditing = !_isEditing;
-    });
-  }
-
-  void _applyFormatting(String format) {
-    final currentText = _contentController.text;
-    switch (format) {
-      case 'bold':
-        _contentController.text = '$currentText **bold text**';
-        break;
-      case 'italic':
-        _contentController.text = '$currentText *italic text*';
-        break;
-      case 'underline':
-        _contentController.text = '$currentText __underlined text__';
-        break;
-      case 'list':
-        _contentController.text = '$currentText\n• List item';
-        break;
-    }
-    _contentController.selection = TextSelection.fromPosition(
-      TextPosition(offset: _contentController.text.length),
-    );
-  }
-
-  void _onBackPressed() {
-    Navigator.pushReplacementNamed(context, '/notes');
   }
 
   @override
-  Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background, // THEME: Dynamic background
-      body: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              height: 72,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Theme.of(context).cardColor, // THEME: Dynamic app bar
-                boxShadow: [
-                  BoxShadow(
-                    color: Theme.of(context).brightness == Brightness.dark 
-                        ? Colors.black.withOpacity(0.3) 
-                        : const Color(0x0C000000), // THEME: Adaptive shadow
-                    spreadRadius: 0,
-                    offset: const Offset(0, 1),
-                    blurRadius: 2,
-                  )
-                ],
-              ),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: _onBackPressed,
-                    child: Container(
-                      width: 86,
-                      height: 32,
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.arrow_back_ios,
-                            size: 11,
-                            color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic icon
-                          ),
-                          const SizedBox(width: 9),
-                          Text(
-                            'Back',
-                            style: GoogleFonts.inter(
-                              color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
-                              fontSize: 16,
-                              height: 1,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    'Note Details',
-                    style: GoogleFonts.inter(
-                      color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: _toggleEdit,
-                    icon: Icon(
-                      _isEditing ? Icons.save : Icons.edit,
-                      color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic icon
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            Expanded(
-              child: Container(
-                margin: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor, // THEME: Dynamic card
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Theme.of(context).brightness == Brightness.dark 
-                          ? Colors.black.withOpacity(0.3) 
-                          : const Color(0xFF000000).withOpacity(0.1), // THEME: Adaptive shadow
-                      spreadRadius: 0,
-                      offset: const Offset(0, 2),
-                      blurRadius: 8,
-                    ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (_isEditing)
-                        TextField(
-                          controller: _titleController,
-                          style: GoogleFonts.inter(
-                            color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          decoration: InputDecoration(
-                            border: InputBorder.none,
-                            hintText: 'Note Title',
-                            hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)), // THEME: Dynamic hint
-                          ),
-                        )
-                      else
-                        Text(
-                          widget.note.title,
-                          style: GoogleFonts.inter(
-                            color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      
-                      const SizedBox(height: 16),
-                      
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: widget.note.categoryColor,
-                          borderRadius: BorderRadius.circular(9999),
-                        ),
-                        child: Text(
-                          widget.note.category,
-                          style: GoogleFonts.inter(
-                            color: widget.note.textColor,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                      
-                      const SizedBox(height: 24),
-                      
-                      Expanded(
-                        child: _isEditing
-                            ? TextField(
-                                controller: _contentController,
-                                maxLines: null,
-                                expands: true,
-                                textAlignVertical: TextAlignVertical.top,
-                                style: GoogleFonts.inter(
-                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8), // THEME: Dynamic text
-                                  fontSize: 16,
-                                  height: 1.6,
-                                ),
-                                decoration: InputDecoration(
-                                  border: InputBorder.none,
-                                  hintText: 'Start writing your note...',
-                                  hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)), // THEME: Dynamic hint
-                                ),
-                              )
-                            : SingleChildScrollView(
-                                child: Text(
-                                  widget.note.content,
-                                  style: GoogleFonts.inter(
-                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8), // THEME: Dynamic text
-                                    fontSize: 16,
-                                    height: 1.6,
-                                  ),
-                                ),
-                              ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            
-            if (_isEditing)
-              Container(
-                height: 80,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor, // THEME: Dynamic background
-                  border: Border.all(color: Theme.of(context).dividerColor), // THEME: Dynamic border
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildFormatButton(Icons.format_bold, () => _applyFormatting('bold'), themeProvider),
-                    _buildFormatButton(Icons.format_italic, () => _applyFormatting('italic'), themeProvider),
-                    _buildFormatButton(Icons.format_underlined, () => _applyFormatting('underline'), themeProvider),
-                    _buildFormatButton(Icons.format_list_bulleted, () => _applyFormatting('list'), themeProvider),
-                    _buildFormatButton(Icons.bookmark_border, () {}, themeProvider),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
+  void dispose() {
+    _titleController.dispose();
+    _contentController.dispose();
+    super.dispose();
   }
-
-  Widget _buildFormatButton(IconData icon, VoidCallback onTap, ThemeProvider themeProvider) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark 
-              ? Colors.black.withOpacity(0.2) 
-              : const Color(0xFFF3F4F6), // THEME: Adaptive background
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(
-          icon,
-          size: 20,
-          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), // THEME: Dynamic icon
-        ),
-      ),
-    );
-  }
-}
-
-class Note {
-  final String id;
-  final String title;
-  final String content;
-  final String category;
-  final String timeAgo;
-  final Color categoryColor;
-  final Color textColor;
-
-  Note({
-    required this.id,
-    required this.title,
-    required this.content,
-    required this.category,
-    required this.timeAgo,
-    required this.categoryColor,
-    required this.textColor,
-  });
-}
-
-class JournalEntry {
-  String id;
-  String title;
-  String content;
-  DateTime createdAt;
-  bool isFavorited;
-
-  JournalEntry({
-    required this.id,
-    required this.title,
-    required this.content,
-    required this.createdAt,
-    required this.isFavorited,
-  });
 }

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'to_do_list_screen.dart';
 import '../utils/theme_provider.dart';
+import '../services/task_service.dart';
+import '../services/firebase_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class NewTaskScreen extends StatefulWidget {
   const NewTaskScreen({super.key});
@@ -18,19 +20,43 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
   
   DateTime _selectedDate = DateTime.now();
   TimeOfDay _dueTime = const TimeOfDay(hour: 17, minute: 0);
-  TaskCategory _selectedCategory = TaskCategory.academic;
-  
-  bool _isTimeAM = false;
-  int _hour = 5;
-  int _minute = 0;
+  String _selectedCategory = 'Personal';
+  List<String> _availableCategories = ['Personal'];
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    _hour = now.hour % 12 == 0 ? 12 : now.hour % 12;
-    _isTimeAM = now.hour < 12;
-    _dueTime = TimeOfDay.fromDateTime(now);
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) return;
+
+      final instructorCourses = await FirebaseService.getInstructorCourses(userId);
+      final studentCourses = await FirebaseService.getStudentEnrolledCourses(userId);
+
+      final courseNames = <String>{'Personal'};
+      for (var course in instructorCourses) {
+        courseNames.add(course['title'] ?? 'Unknown Course');
+      }
+      for (var course in studentCourses) {
+        courseNames.add(course['title'] ?? 'Unknown Course');
+      }
+
+      if (mounted) {
+        setState(() {
+          _availableCategories = courseNames.toList();
+          if (!_availableCategories.contains(_selectedCategory)) {
+            _selectedCategory = _availableCategories.first;
+          }
+        });
+      }
+    } catch (e) {
+      print('Error loading categories: $e');
+    }
   }
 
   void _selectDate() async {
@@ -55,13 +81,11 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
     if (picked != null) {
       setState(() {
         _dueTime = picked;
-        _hour = picked.hourOfPeriod;
-        _isTimeAM = picked.period == DayPeriod.am;
       });
     }
   }
 
-  void _createTask() {
+  Future<void> _createTask() async {
     if (_titleController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a task title')),
@@ -69,71 +93,48 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
       return;
     }
 
-    final task = TodoItem(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      title: _titleController.text,
-      dueDate: _formatDueDate(),
-      category: _getCategoryName(_selectedCategory),
-      categoryColor: _getCategoryColor(_selectedCategory),
-      textColor: _getCategoryTextColor(_selectedCategory),
-      isCompleted: false,
-    );
+    setState(() => _isLoading = true);
 
-    Navigator.pop(context, task);
-  }
+    try {
+      final dueDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _dueTime.hour,
+        _dueTime.minute,
+      );
 
-  String _formatDueDate() {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final selected = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
-    
-    if (selected == today) {
-      return 'Today, ${_dueTime.format(context)}';
-    } else if (selected == today.add(const Duration(days: 1))) {
-      return 'Tomorrow, ${_dueTime.format(context)}';
-    } else {
-      final dateFormat = DateFormat('MMM d');
-      return '${dateFormat.format(_selectedDate)}, ${_dueTime.format(context)}';
+      await TaskService.createTask(
+        title: _titleController.text,
+        description: _descriptionController.text,
+        category: _selectedCategory,
+        dueDate: dueDateTime,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Task created successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error creating task: $e')),
+        );
+      }
     }
   }
 
-  Color _getCategoryColor(TaskCategory category) {
-    switch (category) {
-      case TaskCategory.academic:
-        return const Color(0xFFDBEAFE);
-      case TaskCategory.personal:
-        return const Color(0xFFDCFCE7);
-      case TaskCategory.work:
-        return const Color(0xFFFEF3C7);
-      case TaskCategory.other:
-        return const Color(0xFFF3E8FF);
-    }
-  }
-
-  Color _getCategoryTextColor(TaskCategory category) {
-    switch (category) {
-      case TaskCategory.academic:
-        return const Color(0xFF2563EB);
-      case TaskCategory.personal:
-        return const Color(0xFF16A34A);
-      case TaskCategory.work:
-        return const Color(0xFFD97706);
-      case TaskCategory.other:
-        return const Color(0xFF9333EA);
-    }
-  }
-
-  String _getCategoryName(TaskCategory category) {
-    switch (category) {
-      case TaskCategory.academic:
-        return 'Academic';
-      case TaskCategory.personal:
-        return 'Personal';
-      case TaskCategory.work:
-        return 'Work';
-      case TaskCategory.other:
-        return 'Other';
-    }
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
   }
 
   @override
@@ -141,7 +142,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background, // THEME: Dynamic background
+      backgroundColor: Theme.of(context).colorScheme.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -149,12 +150,12 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
             Container(
               height: 72,
               decoration: BoxDecoration(
-                color: Theme.of(context).cardColor, // THEME: Dynamic header
+                color: Theme.of(context).cardColor,
                 boxShadow: [
                   BoxShadow(
                     color: Theme.of(context).brightness == Brightness.dark 
                         ? Colors.black.withOpacity(0.3) 
-                        : const Color(0x0C000000), // THEME: Adaptive shadow
+                        : const Color(0x0C000000),
                     spreadRadius: 0,
                     offset: const Offset(0, 1),
                     blurRadius: 2,
@@ -167,7 +168,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
                   // Back Button
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: Container(
+                    child: SizedBox(
                       width: 86,
                       height: 32,
                       child: Row(
@@ -175,13 +176,13 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
                           Icon(
                             Icons.arrow_back_ios,
                             size: 11,
-                            color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic icon
+                            color: Theme.of(context).colorScheme.onBackground,
                           ),
                           const SizedBox(width: 9),
                           Text(
                             'Back',
                             style: GoogleFonts.inter(
-                              color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
+                              color: Theme.of(context).colorScheme.onBackground,
                               fontSize: 16,
                               height: 1,
                             ),
@@ -197,7 +198,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
                   Text(
                     'New Task',
                     style: GoogleFonts.inter(
-                      color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
+                      color: Theme.of(context).colorScheme.onBackground,
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                     ),
@@ -216,17 +217,10 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
                 padding: const EdgeInsets.all(24),
                 child: Column(
                   children: [
-                    // Task Details Card
                     _buildTaskDetailsCard(),
-                    
                     const SizedBox(height: 24),
-                    
-                    // Due Date Card
                     _buildDueDateCard(),
-                    
                     const SizedBox(height: 24),
-                    
-                    // Due Time Card
                     _buildDueTimeCard(),
                   ],
                 ),
@@ -240,7 +234,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
               height: 56,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
-                gradient: themeProvider.gradient, // THEME: Dynamic gradient
+                gradient: themeProvider.gradient,
                 boxShadow: const [
                   BoxShadow(
                     color: Color(0x19000000),
@@ -260,16 +254,27 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
                 color: Colors.transparent,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
-                  onTap: _createTask,
+                  onTap: _isLoading ? null : _createTask,
                   child: Center(
-                    child: Text(
-                      'Create Task',
-                      style: GoogleFonts.inter(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    child: _isLoading
+                        ? SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white.withOpacity(0.7),
+                              ),
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(
+                            'Create Task',
+                            style: GoogleFonts.inter(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                   ),
                 ),
               ),
@@ -285,14 +290,14 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor, // THEME: Dynamic card
-        border: Border.all(color: Theme.of(context).dividerColor), // THEME: Dynamic border
+        color: Theme.of(context).cardColor,
+        border: Border.all(color: Theme.of(context).dividerColor),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Theme.of(context).brightness == Brightness.dark 
                 ? Colors.black.withOpacity(0.3) 
-                : const Color(0x0C000000), // THEME: Adaptive shadow
+                : const Color(0x0C000000),
             spreadRadius: 0,
             offset: const Offset(0, 1),
             blurRadius: 2,
@@ -302,11 +307,18 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Task Title
           _buildFormField(
             label: 'Task',
             hintText: 'Enter title...',
             controller: _titleController,
+          ),
+          
+          const SizedBox(height: 24),
+          
+          _buildFormField(
+            label: 'Description',
+            hintText: 'Enter description...',
+            controller: _descriptionController,
           ),
           
           const SizedBox(height: 24),
@@ -318,7 +330,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
               Text(
                 'Category',
                 style: GoogleFonts.inter(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), // THEME: Dynamic label
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),
@@ -331,35 +343,37 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
                 decoration: BoxDecoration(
                   color: Theme.of(context).brightness == Brightness.dark 
                       ? Colors.black.withOpacity(0.2) 
-                      : const Color(0x7FFFFFFF), // THEME: Adaptive background
-                  border: Border.all(color: Theme.of(context).dividerColor), // THEME: Dynamic border
+                      : const Color(0x7FFFFFFF),
+                  border: Border.all(color: Theme.of(context).dividerColor),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: DropdownButtonHideUnderline(
-                  child: DropdownButton<TaskCategory>(
+                  child: DropdownButton<String>(
                     value: _selectedCategory,
                     isExpanded: true,
                     icon: Icon(
                       Icons.arrow_drop_down,
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), // THEME: Dynamic icon
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                     ),
-                    items: TaskCategory.values.map((TaskCategory category) {
-                      return DropdownMenuItem<TaskCategory>(
+                    items: _availableCategories.map((String category) {
+                      return DropdownMenuItem<String>(
                         value: category,
                         child: Text(
-                          _getCategoryName(category),
+                          category,
                           style: GoogleFonts.inter(
-                            color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
+                            color: Theme.of(context).colorScheme.onBackground,
                             fontSize: 16,
                             height: 1.5,
                           ),
                         ),
                       );
                     }).toList(),
-                    onChanged: (TaskCategory? newValue) {
-                      setState(() {
-                        _selectedCategory = newValue!;
-                      });
+                    onChanged: (String? newValue) {
+                      if (newValue != null) {
+                        setState(() {
+                          _selectedCategory = newValue;
+                        });
+                      }
                     },
                   ),
                 ),
@@ -376,14 +390,14 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor, // THEME: Dynamic card
-        border: Border.all(color: Theme.of(context).dividerColor), // THEME: Dynamic border
+        color: Theme.of(context).cardColor,
+        border: Border.all(color: Theme.of(context).dividerColor),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Theme.of(context).brightness == Brightness.dark 
                 ? Colors.black.withOpacity(0.3) 
-                : const Color(0x0C000000), // THEME: Adaptive shadow
+                : const Color(0x0C000000),
             spreadRadius: 0,
             offset: const Offset(0, 1),
             blurRadius: 2,
@@ -396,7 +410,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
           Text(
             'Select date',
             style: GoogleFonts.roboto(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), // THEME: Dynamic label
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
               fontSize: 14,
               fontWeight: FontWeight.w500,
               height: 1.4,
@@ -412,7 +426,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
               height: 56,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
-                border: Border.all(color: Theme.of(context).dividerColor), // THEME: Dynamic border
+                border: Border.all(color: Theme.of(context).dividerColor),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Row(
@@ -421,23 +435,20 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
                     child: Text(
                       DateFormat('MM/dd/yyyy').format(_selectedDate),
                       style: GoogleFonts.roboto(
-                        color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
+                        color: Theme.of(context).colorScheme.onBackground,
                         fontSize: 16,
                         letterSpacing: 1,
                         height: 1.5,
                       ),
                     ),
                   ),
-                  Container(
+                  SizedBox(
                     width: 52,
                     height: 40,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(100),
-                    ),
                     child: Center(
                       child: Icon(
                         Icons.calendar_today,
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), // THEME: Dynamic icon
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                         size: 20,
                       ),
                     ),
@@ -456,14 +467,14 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor, // THEME: Dynamic card
-        border: Border.all(color: Theme.of(context).dividerColor), // THEME: Dynamic border
+        color: Theme.of(context).cardColor,
+        border: Border.all(color: Theme.of(context).dividerColor),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Theme.of(context).brightness == Brightness.dark 
                 ? Colors.black.withOpacity(0.3) 
-                : const Color(0x0C000000), // THEME: Adaptive shadow
+                : const Color(0x0C000000),
             spreadRadius: 0,
             offset: const Offset(0, 1),
             blurRadius: 2,
@@ -476,7 +487,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
           Text(
             'Due Time',
             style: GoogleFonts.inter(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), // THEME: Dynamic label
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -484,7 +495,6 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
           
           const SizedBox(height: 12),
           
-          // Compact Time Picker
           GestureDetector(
             onTap: _selectTime,
             child: Container(
@@ -493,8 +503,8 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
               decoration: BoxDecoration(
                 color: Theme.of(context).brightness == Brightness.dark 
                     ? Colors.black.withOpacity(0.2) 
-                    : const Color(0xFFF8FAFC), // THEME: Adaptive background
-                border: Border.all(color: Theme.of(context).dividerColor), // THEME: Dynamic border
+                    : const Color(0xFFF8FAFC),
+                border: Border.all(color: Theme.of(context).dividerColor),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -503,14 +513,14 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
                   Text(
                     _dueTime.format(context),
                     style: GoogleFonts.inter(
-                      color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
+                      color: Theme.of(context).colorScheme.onBackground,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                   Icon(
                     Icons.access_time_rounded,
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), // THEME: Dynamic icon
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                     size: 20,
                   ),
                 ],
@@ -533,7 +543,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
         Text(
           label,
           style: GoogleFonts.inter(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), // THEME: Dynamic label
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
             fontSize: 14,
             fontWeight: FontWeight.w500,
           ),
@@ -546,8 +556,8 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
           decoration: BoxDecoration(
             color: Theme.of(context).brightness == Brightness.dark 
                 ? Colors.black.withOpacity(0.2) 
-                : const Color(0x7FFFFFFF), // THEME: Adaptive background
-            border: Border.all(color: Theme.of(context).dividerColor), // THEME: Dynamic border
+                : const Color(0x7FFFFFFF),
+            border: Border.all(color: Theme.of(context).dividerColor),
             borderRadius: BorderRadius.circular(12),
           ),
           child: TextField(
@@ -556,13 +566,13 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
               border: InputBorder.none,
               hintText: hintText,
               hintStyle: GoogleFonts.inter(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5), // THEME: Dynamic hint
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
                 fontSize: 16,
                 height: 1.5,
               ),
             ),
             style: GoogleFonts.inter(
-              color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
+              color: Theme.of(context).colorScheme.onBackground,
               fontSize: 16,
               height: 1.5,
             ),
@@ -573,9 +583,3 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
   }
 }
 
-enum TaskCategory {
-  academic,
-  personal,
-  work,
-  other,
-}

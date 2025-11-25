@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../utils/route_manager.dart';
 import '../services/auth_provider.dart';
+import '../services/task_service.dart';
+import '../models/task.dart';
+import '../utils/calendar_event.dart';
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({Key? key}) : super(key: key);
@@ -14,19 +19,117 @@ class MainMenuScreen extends StatefulWidget {
 
 class _MainMenuScreenState extends State<MainMenuScreen> {
   int _currentBottomNavIndex = 0;
-  bool _mathTaskCompleted = false;
-  bool _physicsTaskCompleted = true;
+  List<Task> _todaysTasks = [];
+  CalendarEvent? _nextDeadline;
+  bool _isLoadingTasks = true;
+  bool _isLoadingEvents = true;
 
-  void _toggleMathTask() {
-    setState(() {
-      _mathTaskCompleted = !_mathTaskCompleted;
-    });
+  @override
+  void initState() {
+    super.initState();
+    _loadTodaysTasks();
+    _loadUpcomingEvents();
   }
 
-  void _togglePhysicsTask() {
-    setState(() {
-      _physicsTaskCompleted = !_physicsTaskCompleted;
-    });
+  Future<void> _loadTodaysTasks() async {
+    try {
+      final allPendingTasks = await TaskService.getPendingTasks();
+      final today = DateTime.now();
+      
+      final todaysTasks = allPendingTasks
+          .where((task) => 
+              task.dueDate.year == today.year &&
+              task.dueDate.month == today.month &&
+              task.dueDate.day == today.day)
+          .toList();
+      
+      // Sort by due date
+      todaysTasks.sort((a, b) => a.dueDate.compareTo(b.dueDate));
+      
+      setState(() {
+        _todaysTasks = todaysTasks.take(3).toList();
+        _isLoadingTasks = false;
+      });
+    } catch (e) {
+      print('Error loading today\'s tasks: $e');
+      setState(() => _isLoadingTasks = false);
+    }
+  }
+
+  Future<void> _loadUpcomingEvents() async {
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) {
+        setState(() => _isLoadingEvents = false);
+        return;
+      }
+
+      final now = DateTime.now();
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('calendar_events')
+          .where('date', isGreaterThanOrEqualTo: now)
+          .orderBy('date', descending: false)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        final doc = snapshot.docs.first;
+        final data = doc.data();
+        _nextDeadline = CalendarEvent(
+          id: doc.id,
+          title: data['title'] ?? '',
+          description: data['description'] ?? '',
+          date: (data['date'] as Timestamp).toDate(),
+          startTime: data['startTime'] ?? '',
+          endTime: data['endTime'] ?? '',
+          type: _parseEventType(data['type'] ?? 'event'),
+          color: _getColorForType(_parseEventType(data['type'] ?? 'event')),
+        );
+      }
+
+      setState(() => _isLoadingEvents = false);
+    } catch (e) {
+      print('Error loading upcoming events: $e');
+      setState(() => _isLoadingEvents = false);
+    }
+  }
+
+  EventType _parseEventType(String type) {
+    switch (type) {
+      case 'assignment':
+        return EventType.assignment;
+      case 'exam':
+        return EventType.exam;
+      case 'event':
+      default:
+        return EventType.event;
+    }
+  }
+
+  Color _getColorForType(EventType type) {
+    switch (type) {
+      case EventType.assignment:
+        return const Color(0xFF4E9FEC);
+      case EventType.event:
+        return const Color(0xFF5CD6C0);
+      case EventType.exam:
+        return const Color(0xFFFB923C);
+    }
+  }
+
+  void _toggleTaskCompletion(Task task) async {
+    try {
+      if (task.isCompleted) {
+        await TaskService.uncompleteTask(task.id);
+      } else {
+        await TaskService.completeTask(task.id);
+      }
+      await _loadTodaysTasks();
+    } catch (e) {
+      print('Error toggling task: $e');
+    }
   }
 
   void _navigateToFeature(String routeName) {
@@ -316,18 +419,64 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   }
 
   Widget _buildNextDeadlineCard() {
+    if (_isLoadingEvents) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(25),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          border: Border.all(color: Theme.of(context).dividerColor),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_nextDeadline == null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(25),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          border: Border.all(color: Theme.of(context).dividerColor),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Next Deadline',
+              style: GoogleFonts.inter(
+                color: Theme.of(context).colorScheme.onBackground,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No upcoming events',
+              style: GoogleFonts.inter(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor, // THEME: Dynamic card color
-        border: Border.all(color: Theme.of(context).dividerColor), // THEME: Dynamic border
+        color: Theme.of(context).cardColor,
+        border: Border.all(color: Theme.of(context).dividerColor),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Theme.of(context).brightness == Brightness.dark 
                 ? Colors.black.withOpacity(0.3) 
-                : const Color(0xFF000000).withOpacity(0.05), // THEME: Adaptive shadow
+                : const Color(0xFF000000).withOpacity(0.05),
             spreadRadius: 0,
             offset: const Offset(0, 1),
             blurRadius: 2,
@@ -343,7 +492,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
               Text(
                 'Next Deadline',
                 style: GoogleFonts.inter(
-                  color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text color
+                  color: Theme.of(context).colorScheme.onBackground,
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   height: 1.5,
@@ -352,11 +501,11 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFF8C00), // Keep urgency color
+                  color: _nextDeadline!.color.withOpacity(0.8),
                   borderRadius: BorderRadius.circular(9999),
                 ),
                 child: Text(
-                  'Due Tomorrow',
+                  _nextDeadline!.type.toString().split('.').last.toUpperCase(),
                   style: GoogleFonts.inter(
                     color: Colors.white,
                     fontSize: 12,
@@ -372,15 +521,14 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFEE2E2), // Keep icon background
+                  color: _nextDeadline!.color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Center(
-                  child: Image.network(
-                    'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2Fe4e92e22-3e54-4bc9-a24d-dd98d94daeb4.png',
-                    width: 14,
-                    height: 16,
-                    fit: BoxFit.contain,
+                  child: Icon(
+                    _getEventIcon(_nextDeadline!.type),
+                    color: _nextDeadline!.color,
+                    size: 20,
                   ),
                 ),
               ),
@@ -390,18 +538,18 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Chemistry Lab Report',
+                      _nextDeadline!.title,
                       style: GoogleFonts.inter(
-                        color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text color
+                        color: Theme.of(context).colorScheme.onBackground,
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                         height: 1.5,
                       ),
                     ),
                     Text(
-                      'Due: Oct 2, 11:59 PM',
+                      'Due: ${_formatEventDate(_nextDeadline!.date)}',
                       style: GoogleFonts.inter(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), // THEME: Dynamic secondary text
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                         fontSize: 14,
                         height: 1.4,
                       ),
@@ -417,18 +565,31 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   }
 
   Widget _buildTodaysTasksCard() {
+    if (_isLoadingTasks) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(25),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          border: Border.all(color: Theme.of(context).dividerColor),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor, // THEME: Dynamic card color
-        border: Border.all(color: Theme.of(context).dividerColor), // THEME: Dynamic border
+        color: Theme.of(context).cardColor,
+        border: Border.all(color: Theme.of(context).dividerColor),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Theme.of(context).brightness == Brightness.dark 
                 ? Colors.black.withOpacity(0.3) 
-                : const Color(0xFF000000).withOpacity(0.05), // THEME: Adaptive shadow
+                : const Color(0xFF000000).withOpacity(0.05),
             spreadRadius: 0,
             offset: const Offset(0, 1),
             blurRadius: 2,
@@ -441,100 +602,92 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
           Text(
             "Today's Tasks",
             style: GoogleFonts.inter(
-              color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text color
+              color: Theme.of(context).colorScheme.onBackground,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 20),
           
-          GestureDetector(
-            onTap: _toggleMathTask,
-            child: Row(
-              children: [
-                Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: _mathTaskCompleted ? const Color(0xFF0075FF) : Theme.of(context).cardColor, // THEME: Adaptive checkbox
-                    border: Border.all(
-                      color: _mathTaskCompleted ? const Color(0xFF0075FF) : Theme.of(context).dividerColor, // THEME: Adaptive border
-                      width: 0.5,
-                    ),
-                    borderRadius: BorderRadius.circular(1),
-                  ),
-                  child: _mathTaskCompleted 
-                      ? Center(
-                          child: Image.network(
-                            'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2Fa1d68ca4-7c8e-4934-9723-cf81ef0358f4.png',
-                            width: 13,
-                            height: 11,
-                            fit: BoxFit.contain,
+          if (_todaysTasks.isEmpty)
+            Text(
+              'No tasks for today',
+              style: GoogleFonts.inter(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                fontSize: 14,
+              ),
+            )
+          else
+            ..._todaysTasks.map((task) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: GestureDetector(
+                  onTap: () => _toggleTaskCompletion(task),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          color: task.isCompleted ? const Color(0xFF0075FF) : Theme.of(context).cardColor,
+                          border: Border.all(
+                            color: task.isCompleted ? const Color(0xFF0075FF) : Theme.of(context).dividerColor,
+                            width: 0.5,
                           ),
-                        )
-                      : null,
-                ),
-                const SizedBox(width: 11),
-                Text(
-                  'Review Math Chapter 5',
-                  style: GoogleFonts.inter(
-                    color: _mathTaskCompleted 
-                        ? Theme.of(context).colorScheme.onSurface.withOpacity(0.5) // THEME: Dynamic completed text
-                        : Theme.of(context).colorScheme.onBackground, // THEME: Dynamic active text
-                    fontSize: 16,
-                    height: 1.5,
-                    decoration: _mathTaskCompleted ? TextDecoration.lineThrough : null,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          GestureDetector(
-            onTap: _togglePhysicsTask,
-            child: Row(
-              children: [
-                Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: _physicsTaskCompleted ? const Color(0xFF0075FF) : Theme.of(context).cardColor, // THEME: Adaptive checkbox
-                    border: Border.all(
-                      color: _physicsTaskCompleted ? const Color(0xFF0075FF) : Theme.of(context).dividerColor, // THEME: Adaptive border
-                      width: 0.5,
-                    ),
-                    borderRadius: BorderRadius.circular(1),
-                  ),
-                  child: _physicsTaskCompleted 
-                      ? Center(
-                          child: Image.network(
-                            'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2Fa1d68ca4-7c8e-4934-9723-cf81ef0358f4.png',
-                            width: 13,
-                            height: 11,
-                            fit: BoxFit.contain,
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                        child: task.isCompleted 
+                            ? const Center(
+                                child: Icon(Icons.check, color: Colors.white, size: 14),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 11),
+                      Expanded(
+                        child: Text(
+                          task.title,
+                          style: GoogleFonts.inter(
+                            color: task.isCompleted 
+                                ? Theme.of(context).colorScheme.onSurface.withOpacity(0.5)
+                                : Theme.of(context).colorScheme.onBackground,
+                            fontSize: 16,
+                            height: 1.5,
+                            decoration: task.isCompleted ? TextDecoration.lineThrough : null,
                           ),
-                        )
-                      : null,
-                ),
-                const SizedBox(width: 11),
-                Text(
-                  'Submit Physics homework',
-                  style: GoogleFonts.inter(
-                    color: _physicsTaskCompleted 
-                        ? Theme.of(context).colorScheme.onSurface.withOpacity(0.5) // THEME: Dynamic completed text
-                        : Theme.of(context).colorScheme.onBackground, // THEME: Dynamic active text
-                    fontSize: 16,
-                    height: 1.5,
-                    decoration: _physicsTaskCompleted ? TextDecoration.lineThrough : null,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
-          ),
+              );
+            }).toList(),
         ],
       ),
     );
+  }
+
+  IconData _getEventIcon(EventType type) {
+    switch (type) {
+      case EventType.assignment:
+        return Icons.assignment;
+      case EventType.event:
+        return Icons.event;
+      case EventType.exam:
+        return Icons.quiz;
+    }
+  }
+
+  String _formatEventDate(DateTime date) {
+    final today = DateTime.now();
+    final tomorrow = today.add(const Duration(days: 1));
+    
+    if (date.year == today.year && date.month == today.month && date.day == today.day) {
+      return 'Today';
+    } else if (date.year == tomorrow.year && date.month == tomorrow.month && date.day == tomorrow.day) {
+      return 'Tomorrow';
+    } else {
+      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return '${months[date.month - 1]} ${date.day}';
+    }
   }
 }
