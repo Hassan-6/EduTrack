@@ -553,6 +553,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
               ],
             ),

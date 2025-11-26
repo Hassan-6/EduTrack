@@ -396,7 +396,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             // Time Selection Header
             Row(
               children: [
-                Expanded(
+                Flexible(
                   child: Text(
                     'Start Time',
                     style: GoogleFonts.inter(
@@ -404,9 +404,11 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Expanded(
+                const SizedBox(width: 16),
+                Flexible(
                   child: Text(
                     'End Time',
                     style: GoogleFonts.inter(
@@ -414,6 +416,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -468,14 +471,18 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              time.format(context),
-              style: GoogleFonts.inter(
-                color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
+            Flexible(
+              child: Text(
+                time.format(context),
+                style: GoogleFonts.inter(
+                  color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
+            const SizedBox(width: 8),
             Icon(
               Icons.access_time_rounded,
               color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), // THEME: Dynamic icon

@@ -74,6 +74,9 @@ class _AuthScreenState extends State<AuthScreen> {
       if (_isLogin) {
         _nameController.clear();
         _rollNumberController.clear();
+      } else {
+        // Remove email suggestions when switching to signup mode
+        _removeOverlay();
       }
     });
   }
@@ -86,6 +89,12 @@ class _AuthScreenState extends State<AuthScreen> {
 
   void _updateEmailSuggestions() async {
     if (_isSelectingSuggestion) return;
+    
+    // Only show email suggestions on login page, not on signup
+    if (!_isLogin) {
+      _removeOverlay();
+      return;
+    }
     
     final query = _emailController.text.trim();
     
@@ -351,6 +360,12 @@ class _AuthScreenState extends State<AuthScreen> {
     }
     if (value.length < 6) {
       return 'Password must be at least 6 characters';
+    }
+    if (!value.contains(RegExp(r'[A-Z]'))) {
+      return 'Password must contain at least one uppercase letter';
+    }
+    if (!value.contains(RegExp(r'[0-9]'))) {
+      return 'Password must contain at least one number';
     }
     return null;
   }
@@ -643,14 +658,17 @@ class _AuthScreenState extends State<AuthScreen> {
               controller: _emailController,
               validator: _validateEmail,
               keyboardType: TextInputType.emailAddress,
+              autofillHints: _isLogin ? [AutofillHints.email] : [],
               onTap: () {
-                if (_emailSuggestions.isNotEmpty) {
+                if (_isLogin && _emailSuggestions.isNotEmpty) {
                   _showOverlay();
                 }
               },
               onChanged: (value) {
-                // Trigger suggestions update on every character change
-                _updateEmailSuggestions();
+                // Only trigger suggestions update on login page
+                if (_isLogin) {
+                  _updateEmailSuggestions();
+                }
               },
               decoration: InputDecoration(
                 labelText: 'Email Address',
