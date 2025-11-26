@@ -20,13 +20,12 @@ import 'screens/profile_viewer_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/new_entry_screen.dart';
 import 'screens/new_task_screen.dart';
-import 'screens/popup_question_screen.dart';
 import 'screens/present_question_screen.dart';
-import 'screens/quiz_screen.dart';
 import 'screens/question_results_screen.dart';
 import 'screens/schedule_quiz_screen.dart';
 import 'widgets/course_model.dart';
 import 'utils/theme_provider.dart';
+import 'utils/route_manager.dart';
 import 'services/firebase_service.dart';
 import 'services/auth_provider.dart';
 
@@ -52,6 +51,11 @@ class MyApp extends StatelessWidget {
       ],
       child: Consumer2<ThemeProvider, AuthProvider>(
         builder: (context, themeProvider, authProvider, child) {
+          // Sync RouteManager with AuthProvider user type
+          if (authProvider.userType != null) {
+            RouteManager.setUserType(authProvider.userType!);
+          }
+
           return MaterialApp(
             title: 'EduTrack',
             theme: _buildLightTheme(themeProvider),
@@ -70,37 +74,56 @@ class MyApp extends StatelessWidget {
               '/qna': (context) => const QAWallScreen(),
               '/courses': (context) => const CoursesScreen(),
               '/course_detail': (context) {
-                final course = ModalRoute.of(context)!.settings.arguments as Course;
+                final course =
+                    ModalRoute.of(context)!.settings.arguments as Course;
                 return CourseDetailScreen(course: course);
               },
               '/course_enrollment': (context) => const CourseEnrollmentScreen(),
               '/ins_courses': (context) => const InstructorCoursesScreen(),
               '/ins_course_detail': (context) {
-                final course = ModalRoute.of(context)!.settings.arguments as Course;
+                final course =
+                    ModalRoute.of(context)!.settings.arguments as Course;
                 return InstructorCourseDetailScreen(course: course);
               },
               '/attendance': (context) => const AttendanceScreen(),
               '/ins_attendance': (context) => const InsAttendanceScreen(),
               '/profile': (context) => const ProfileScreen(),
               '/profile_viewer': (context) => ProfileViewerScreen(
-                    userProfile: ModalRoute.of(context)!.settings.arguments as UserProfile,
-                  ),
+                userProfile:
+                    ModalRoute.of(context)!.settings.arguments as UserProfile,
+              ),
               '/settings': (context) => const SettingsScreen(),
-              '/popup_question': (context) {
-                final courseName = ModalRoute.of(context)!.settings.arguments as String;
-                return PopupQuestionScreen(courseName: courseName);
-              },
-              '/quiz': (context) => const QuizScreen(),
+              // Note: These routes are deprecated. Use MaterialPageRoute from course_detail_screen instead.
+              // '/popup_question': (context) {
+              //   final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+              //   return PopupQuestionScreen(
+              //     course: args['course'],
+              //     questionId: args['questionId'],
+              //     question: args['question'],
+              //   );
+              // },
+              // '/quiz': (context) {
+              //   final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+              //   return QuizScreen(
+              //     course: args['course'],
+              //     quizId: args['quizId'],
+              //     quiz: args['quiz'],
+              //   );
+              // },
               '/present_question': (context) {
-                final course = ModalRoute.of(context)!.settings.arguments as Course;
+                final course =
+                    ModalRoute.of(context)!.settings.arguments as Course;
                 return PresentQuestionScreen(course: course);
               },
               '/schedule_quiz': (context) {
-                final course = ModalRoute.of(context)!.settings.arguments as Course;
+                final course =
+                    ModalRoute.of(context)!.settings.arguments as Course;
                 return ScheduleQuizScreen(course: course);
               },
               '/question_results': (context) {
-                final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+                final args =
+                    ModalRoute.of(context)!.settings.arguments
+                        as Map<String, dynamic>;
                 return QuestionResultsScreen(
                   course: args['course'],
                   question: args['question'],

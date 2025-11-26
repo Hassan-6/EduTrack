@@ -117,18 +117,18 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
     return RoleGuard(
       requiredRole: 'instructor',
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
+        backgroundColor: Theme.of(context).colorScheme.background, // THEME: Dynamic background
         appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).cardColor, // THEME: Dynamic app bar color
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1E1E1E)),
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onBackground),
           onPressed: _onBackPressed, // FIXED: Use the new handler
         ),
         title: Text(
           'My Courses',
           style: GoogleFonts.inter(
-            color: const Color(0xFF111827),
+            color: Theme.of(context).colorScheme.onBackground,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -136,7 +136,7 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.search, color: Color(0xFF1E1E1E)),
+            icon: Icon(Icons.search, color: Theme.of(context).colorScheme.onBackground),
             onPressed: _searchCourses,
           ),
         ],
@@ -174,11 +174,13 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor, // THEME: Dynamic card color
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.black.withOpacity(0.3)
+                : Colors.black.withOpacity(0.05),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -190,7 +192,7 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
           Text(
             _isLoadingName ? 'Welcome back! 👋' : 'Welcome back, $_instructorName! 👋',
             style: GoogleFonts.inter(
-              color: const Color(0xFF1F2937),
+              color: Theme.of(context).colorScheme.onBackground,
               fontSize: 18,
               fontWeight: FontWeight.w600,
             ),
@@ -199,7 +201,7 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
           Text(
             'You are teaching ${_firebaseCourses.length} course${_firebaseCourses.length == 1 ? '' : 's'} this semester',
             style: GoogleFonts.inter(
-              color: const Color(0xFF6B7280),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
               fontSize: 14,
             ),
           ),
@@ -269,7 +271,7 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: const Color(0xFF1F2937),
+              color: Theme.of(context).colorScheme.onBackground,
             ),
           ),
           const SizedBox(height: 8),
@@ -277,7 +279,7 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
             'Tap the + button to create your first course',
             style: GoogleFonts.inter(
               fontSize: 14,
-              color: const Color(0xFF6B7280),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
             ),
             textAlign: TextAlign.center,
           ),
@@ -314,11 +316,13 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardColor, // THEME: Dynamic card color
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.black.withOpacity(0.3)
+                  : Colors.black.withOpacity(0.05),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -356,7 +360,7 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
                       style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xFF1F2937),
+                        color: Theme.of(context).colorScheme.onBackground,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -364,7 +368,7 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
                       'OTP: ${courseData['otp'] ?? 'N/A'}',
                       style: GoogleFonts.inter(
                         fontSize: 12,
-                        color: const Color(0xFF6B7280),
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                       ),
                     ),
                   ],
@@ -377,7 +381,7 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
             courseData['description'] ?? 'No description',
             style: GoogleFonts.inter(
               fontSize: 13,
-              color: const Color(0xFF6B7280),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,

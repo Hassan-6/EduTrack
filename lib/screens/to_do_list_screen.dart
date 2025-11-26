@@ -688,21 +688,37 @@ class _TodoListScreenState extends State<TodoListScreen> {
   }
 
   void _onBottomNavTapped(int index) {
+    if (index == _currentBottomNavIndex) return;
+    
     setState(() {
       _currentBottomNavIndex = index;
     });
 
+    // Navigate based on index - clear stack and only keep main menu
     switch (index) {
       case 0:
-        Navigator.pushReplacementNamed(context, '/main_menu');
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          RouteManager.getMainMenuRoute(),
+          (route) => route.settings.name == RouteManager.getMainMenuRoute(),
+        );
         break;
       case 1:
+        // Already on Tasks
         break;
       case 2:
-        Navigator.pushReplacementNamed(context, '/qna');
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          RouteManager.getQnARoute(),
+          (route) => route.settings.name == RouteManager.getMainMenuRoute(),
+        );
         break;
       case 3:
-        Navigator.pushReplacementNamed(context, '/profile');
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          RouteManager.getProfileRoute(),
+          (route) => route.settings.name == RouteManager.getMainMenuRoute(),
+        );
         break;
     }
   }

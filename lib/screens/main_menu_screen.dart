@@ -33,21 +33,48 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
   Future<void> _loadTodaysTasks() async {
     try {
-      final allPendingTasks = await TaskService.getPendingTasks();
       final today = DateTime.now();
-      
-      final todaysTasks = allPendingTasks
-          .where((task) => 
-              task.dueDate.year == today.year &&
-              task.dueDate.month == today.month &&
-              task.dueDate.day == today.day)
+
+      // Get both pending and completed tasks
+      final allPendingTasks = await TaskService.getPendingTasks();
+      final allCompletedTasks = await TaskService.getCompletedTasks();
+
+      // Filter pending tasks for today
+      final todaysPendingTasks = allPendingTasks
+          .where(
+            (task) =>
+                task.dueDate.year == today.year &&
+                task.dueDate.month == today.month &&
+                task.dueDate.day == today.day,
+          )
           .toList();
-      
-      // Sort by due date
-      todaysTasks.sort((a, b) => a.dueDate.compareTo(b.dueDate));
-      
+
+      // Filter completed tasks for today
+      final todaysCompletedTasks = allCompletedTasks
+          .where(
+            (task) =>
+                task.dueDate.year == today.year &&
+                task.dueDate.month == today.month &&
+                task.dueDate.day == today.day,
+          )
+          .toList();
+
+      // Combine both lists
+      final allTodaysTasks = [...todaysPendingTasks, ...todaysCompletedTasks];
+
+      // Sort by due date (completed tasks will appear after pending ones if same time)
+      allTodaysTasks.sort((a, b) {
+        final dateCompare = a.dueDate.compareTo(b.dueDate);
+        if (dateCompare != 0) return dateCompare;
+        // If same date, pending tasks come first
+        if (a.isCompleted != b.isCompleted) {
+          return a.isCompleted ? 1 : -1;
+        }
+        return 0;
+      });
+
       setState(() {
-        _todaysTasks = todaysTasks.take(3).toList();
+        _todaysTasks = allTodaysTasks.take(3).toList();
         _isLoadingTasks = false;
       });
     } catch (e) {
@@ -64,12 +91,15 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
         return;
       }
 
+      // Get start of today to include all events from today onwards
       final now = DateTime.now();
+      final startOfToday = DateTime(now.year, now.month, now.day);
+
       final snapshot = await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
           .collection('calendar_events')
-          .where('date', isGreaterThanOrEqualTo: now)
+          .where('date', isGreaterThanOrEqualTo: startOfToday)
           .orderBy('date', descending: false)
           .limit(1)
           .get();
@@ -137,30 +167,47 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   }
 
   void _onBottomNavTapped(int index) {
+    if (index == _currentBottomNavIndex) return;
+    
     setState(() {
       _currentBottomNavIndex = index;
     });
 
+    // Navigate based on index - clear stack and only keep main menu
     switch (index) {
       case 0:
-        Navigator.pushReplacementNamed(context, RouteManager.getMainMenuRoute());
+        // Already on Main Menu
         break;
       case 1:
-        Navigator.pushReplacementNamed(context, RouteManager.getToDoListRoute());
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          RouteManager.getToDoListRoute(),
+          (route) => route.settings.name == RouteManager.getMainMenuRoute(),
+        );
         break;
       case 2:
-        Navigator.pushReplacementNamed(context, RouteManager.getQnARoute());
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          RouteManager.getQnARoute(),
+          (route) => route.settings.name == RouteManager.getMainMenuRoute(),
+        );
         break;
       case 3:
-        Navigator.pushReplacementNamed(context, RouteManager.getProfileRoute());
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          RouteManager.getProfileRoute(),
+          (route) => route.settings.name == RouteManager.getMainMenuRoute(),
+        );
         break;
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background, // THEME: Dynamic background
+      backgroundColor: Theme.of(
+        context,
+      ).colorScheme.background, // THEME: Dynamic background
       body: SafeArea(
         child: Column(
           children: [
@@ -195,9 +242,11 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
         color: Theme.of(context).cardColor, // THEME: Dynamic app bar color
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).brightness == Brightness.dark 
-                ? Colors.black.withOpacity(0.3) 
-                : const Color(0xFF000000).withOpacity(0.05), // THEME: Adaptive shadow
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.black.withOpacity(0.3)
+                : const Color(
+                    0xFF000000,
+                  ).withOpacity(0.05), // THEME: Adaptive shadow
             spreadRadius: 0,
             offset: const Offset(0, 1),
             blurRadius: 2,
@@ -230,7 +279,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
               Text(
                 'EduTrack',
                 style: GoogleFonts.inter(
-                  color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text color
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onBackground, // THEME: Dynamic text color
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                   height: 1.6,
@@ -255,7 +306,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
               return Text(
                 'Hi, ${authProvider.userName}! 👋',
                 style: GoogleFonts.inter(
-                  color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text color
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onBackground, // THEME: Dynamic text color
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
                   height: 1.5,
@@ -267,7 +320,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
           Text(
             "Here's your day at a glance",
             style: GoogleFonts.inter(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), // THEME: Dynamic secondary text
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(
+                0.7,
+              ), // THEME: Dynamic secondary text
               fontSize: 14,
               height: 1.4,
             ),
@@ -282,37 +337,43 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     final features = [
       {
         'title': 'Notes & Journal',
-        'icon': 'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2Fa78f3f55-c0e0-4539-991d-09a5001f461c.png',
+        'icon':
+            'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2Fa78f3f55-c0e0-4539-991d-09a5001f461c.png',
         'color': const Color(0xFFE6F3FF), // Keep feature colors
         'route': '/notes',
       },
       {
         'title': 'To-Do List',
-        'icon': 'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2Feb4185c7-6b7b-4655-a8a4-c18bbf6b2520.png',
+        'icon':
+            'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2Feb4185c7-6b7b-4655-a8a4-c18bbf6b2520.png',
         'color': const Color(0xFFF0FFF0),
         'route': '/todo',
       },
       {
         'title': 'Courses',
-        'icon': 'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2Fe357d2f1-c334-46a4-970e-fac1d37fe64b.png',
+        'icon':
+            'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2Fe357d2f1-c334-46a4-970e-fac1d37fe64b.png',
         'color': const Color(0xFFFEFCE8),
         'route': '/courses',
       },
       {
         'title': 'Calendar',
-        'icon': 'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2F388c7b56-7041-47f9-bc75-0b9fbf910d91.png',
+        'icon':
+            'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2F388c7b56-7041-47f9-bc75-0b9fbf910d91.png',
         'color': const Color(0xFFFFF7ED),
         'route': '/calendar',
       },
       {
         'title': 'Q&A Wall',
-        'icon': 'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2Fb7649f80-53f7-4a54-ba07-fa4c184b6743.png',
+        'icon':
+            'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2Fb7649f80-53f7-4a54-ba07-fa4c184b6743.png',
         'color': const Color(0xFFFAF5FF),
         'route': '/qna',
       },
       {
         'title': 'Attendance',
-        'icon': 'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2Fc76bcdbc-bd72-40b6-84ef-df4fda96988f.png',
+        'icon':
+            'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2Fc76bcdbc-bd72-40b6-84ef-df4fda96988f.png',
         'color': const Color(0xFFEEF2FF),
         'route': '/attendance',
       },
@@ -350,13 +411,17 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor, // THEME: Dynamic card color
-        border: Border.all(color: Theme.of(context).dividerColor), // THEME: Dynamic border
+        border: Border.all(
+          color: Theme.of(context).dividerColor,
+        ), // THEME: Dynamic border
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).brightness == Brightness.dark 
-                ? Colors.black.withOpacity(0.3) 
-                : const Color(0xFF000000).withOpacity(0.05), // THEME: Adaptive shadow
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.black.withOpacity(0.3)
+                : const Color(
+                    0xFF000000,
+                  ).withOpacity(0.05), // THEME: Adaptive shadow
             spreadRadius: 0,
             offset: const Offset(0, 1),
             blurRadius: 2,
@@ -386,7 +451,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
           Text(
             title,
             style: GoogleFonts.inter(
-              color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text color
+              color: Theme.of(
+                context,
+              ).colorScheme.onBackground, // THEME: Dynamic text color
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
@@ -404,7 +471,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
         Text(
           "Today's Snapshot",
           style: GoogleFonts.inter(
-            color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text color
+            color: Theme.of(
+              context,
+            ).colorScheme.onBackground, // THEME: Dynamic text color
             fontSize: 18,
             fontWeight: FontWeight.w600,
             height: 1.6,
@@ -474,8 +543,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).brightness == Brightness.dark 
-                ? Colors.black.withOpacity(0.3) 
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.black.withOpacity(0.3)
                 : const Color(0xFF000000).withOpacity(0.05),
             spreadRadius: 0,
             offset: const Offset(0, 1),
@@ -499,17 +568,17 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: _nextDeadline!.color.withOpacity(0.8),
                   borderRadius: BorderRadius.circular(9999),
                 ),
                 child: Text(
                   _nextDeadline!.type.toString().split('.').last.toUpperCase(),
-                  style: GoogleFonts.inter(
-                    color: Colors.white,
-                    fontSize: 12,
-                  ),
+                  style: GoogleFonts.inter(color: Colors.white, fontSize: 12),
                 ),
               ),
             ],
@@ -549,7 +618,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     Text(
                       'Due: ${_formatEventDate(_nextDeadline!.date)}',
                       style: GoogleFonts.inter(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withOpacity(0.7),
                         fontSize: 14,
                         height: 1.4,
                       ),
@@ -587,8 +658,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).brightness == Brightness.dark 
-                ? Colors.black.withOpacity(0.3) 
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.black.withOpacity(0.3)
                 : const Color(0xFF000000).withOpacity(0.05),
             spreadRadius: 0,
             offset: const Offset(0, 1),
@@ -608,7 +679,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          
+
           if (_todaysTasks.isEmpty)
             Text(
               'No tasks for today',
@@ -629,16 +700,24 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         width: 20,
                         height: 20,
                         decoration: BoxDecoration(
-                          color: task.isCompleted ? const Color(0xFF0075FF) : Theme.of(context).cardColor,
+                          color: task.isCompleted
+                              ? const Color(0xFF0075FF)
+                              : Theme.of(context).cardColor,
                           border: Border.all(
-                            color: task.isCompleted ? const Color(0xFF0075FF) : Theme.of(context).dividerColor,
+                            color: task.isCompleted
+                                ? const Color(0xFF0075FF)
+                                : Theme.of(context).dividerColor,
                             width: 0.5,
                           ),
                           borderRadius: BorderRadius.circular(1),
                         ),
-                        child: task.isCompleted 
+                        child: task.isCompleted
                             ? const Center(
-                                child: Icon(Icons.check, color: Colors.white, size: 14),
+                                child: Icon(
+                                  Icons.check,
+                                  color: Colors.white,
+                                  size: 14,
+                                ),
                               )
                             : null,
                       ),
@@ -647,12 +726,16 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                         child: Text(
                           task.title,
                           style: GoogleFonts.inter(
-                            color: task.isCompleted 
-                                ? Theme.of(context).colorScheme.onSurface.withOpacity(0.5)
+                            color: task.isCompleted
+                                ? Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.5)
                                 : Theme.of(context).colorScheme.onBackground,
                             fontSize: 16,
                             height: 1.5,
-                            decoration: task.isCompleted ? TextDecoration.lineThrough : null,
+                            decoration: task.isCompleted
+                                ? TextDecoration.lineThrough
+                                : null,
                           ),
                         ),
                       ),
@@ -680,13 +763,30 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   String _formatEventDate(DateTime date) {
     final today = DateTime.now();
     final tomorrow = today.add(const Duration(days: 1));
-    
-    if (date.year == today.year && date.month == today.month && date.day == today.day) {
+
+    if (date.year == today.year &&
+        date.month == today.month &&
+        date.day == today.day) {
       return 'Today';
-    } else if (date.year == tomorrow.year && date.month == tomorrow.month && date.day == tomorrow.day) {
+    } else if (date.year == tomorrow.year &&
+        date.month == tomorrow.month &&
+        date.day == tomorrow.day) {
       return 'Tomorrow';
     } else {
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       return '${months[date.month - 1]} ${date.day}';
     }
   }

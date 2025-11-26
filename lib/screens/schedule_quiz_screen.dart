@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../utils/route_manager.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/course_model.dart';
+import '../services/firebase_service.dart';
 
 class ScheduleQuizScreen extends StatefulWidget {
   final Course course;
@@ -54,7 +55,7 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
     });
   }
 
-  void _scheduleQuiz() {
+  Future<void> _scheduleQuiz() async {
     if (_quizTitleController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a quiz title')),
@@ -69,36 +70,128 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
       return;
     }
 
-    // TODO: Implement quiz scheduling logic
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Quiz scheduled successfully!')),
-    );
-    Navigator.pop(context);
+    // Validate all questions
+    for (int i = 0; i < _questions.length; i++) {
+      final q = _questions[i];
+      if (q.questionController.text.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Question ${i + 1} is empty')),
+        );
+        return;
+      }
+      
+      if (q.type == 'MCQ') {
+        for (int j = 0; j < q.optionControllers.length; j++) {
+          if (q.optionControllers[j].text.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Question ${i + 1} option ${String.fromCharCode(65 + j)} is empty')),
+            );
+            return;
+          }
+        }
+        // Validate that a correct answer is selected for MCQ
+        if (q.correctAnswerIndex < 0 || q.correctAnswerIndex >= 4) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Question ${i + 1} requires a correct answer selection')),
+          );
+          return;
+        }
+      }
+    }
+
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      final instructorId = FirebaseAuth.instance.currentUser?.uid;
+      if (instructorId == null) {
+        Navigator.pop(context); // Close loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User not authenticated')),
+        );
+        return;
+      }
+
+      // Prepare questions data
+      List<Map<String, dynamic>> questionsData = [];
+      for (var q in _questions) {
+        final questionData = <String, dynamic>{
+          'question': q.questionController.text,
+          'questionType': q.type,
+        };
+        
+        if (q.type == 'MCQ') {
+          questionData['options'] = q.optionControllers.map((c) => c.text).toList();
+          questionData['correctAnswerIndex'] = q.correctAnswerIndex;
+        } else {
+          // For Short Question, store the expected answer if provided
+          if (q.optionControllers[0].text.isNotEmpty) {
+            questionData['options'] = [q.optionControllers[0].text];
+          }
+        }
+        
+        questionsData.add(questionData);
+      }
+
+      // Combine date and time
+      final scheduledDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _selectedTime.hour,
+        _selectedTime.minute,
+      );
+
+      final durationMinutes = (_durationHours * 60) + _durationMinutes;
+
+      // Create quiz in backend
+      final quizId = await FirebaseService.createQuiz(
+        courseId: widget.course.id,
+        instructorId: instructorId,
+        title: _quizTitleController.text,
+        scheduledDate: scheduledDateTime,
+        durationMinutes: durationMinutes,
+        questions: questionsData,
+      );
+      
+      print('Quiz created with ID: $quizId');
+
+      Navigator.pop(context); // Close loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Quiz scheduled successfully!')),
+      );
+      Navigator.pop(context);
+    } catch (e) {
+      Navigator.pop(context); // Close loading if still open
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error scheduling quiz: $e')),
+      );
+    }
   }
 
   void _onBackPressed() {
-    Navigator.pushReplacementNamed(
-      context, 
-      RouteManager.getCourseDetailRoute(),
-      arguments: widget.course,
-    );
+    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Theme.of(context).colorScheme.background, // THEME: Dynamic background
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).cardColor, // THEME: Dynamic app bar color
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1E1E1E)),
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onBackground),
           onPressed: _onBackPressed, // FIXED: Use the new handler
         ),
         title: Text(
           'Schedule Quiz',
           style: GoogleFonts.inter(
-            color: const Color(0xFF111827),
+            color: Theme.of(context).colorScheme.onBackground,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -150,14 +243,16 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: const Color(0xFFF3F4F6)),
+                color: Theme.of(context).cardColor, // THEME: Dynamic card color
+                border: Border.all(color: Theme.of(context).dividerColor),
                 borderRadius: BorderRadius.circular(16),
-                boxShadow: const [
+                boxShadow: [
                   BoxShadow(
-                    color: Color(0x0C000000),
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.black.withOpacity(0.3)
+                        : const Color(0x0C000000),
                     spreadRadius: 0,
-                    offset: Offset(0, 1),
+                    offset: const Offset(0, 1),
                     blurRadius: 2,
                   )
                 ],
@@ -168,7 +263,7 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
                   Text(
                     'Quiz Title:',
                     style: GoogleFonts.inter(
-                      color: const Color(0xFF1F2937),
+                      color: Theme.of(context).colorScheme.onBackground,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
@@ -202,14 +297,16 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: const Color(0xFFF3F4F6)),
+                color: Theme.of(context).cardColor, // THEME: Dynamic card color
+                border: Border.all(color: Theme.of(context).dividerColor),
                 borderRadius: BorderRadius.circular(16),
-                boxShadow: const [
+                boxShadow: [
                   BoxShadow(
-                    color: Color(0x0C000000),
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.black.withOpacity(0.3)
+                        : const Color(0x0C000000),
                     spreadRadius: 0,
-                    offset: Offset(0, 1),
+                    offset: const Offset(0, 1),
                     blurRadius: 2,
                   )
                 ],
@@ -220,7 +317,7 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
                   Text(
                     'Schedule',
                     style: GoogleFonts.inter(
-                      color: const Color(0xFF1F2937),
+                      color: Theme.of(context).colorScheme.onBackground,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
@@ -340,14 +437,16 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: const Color(0xFFF3F4F6)),
+                color: Theme.of(context).cardColor, // THEME: Dynamic card color
+                border: Border.all(color: Theme.of(context).dividerColor),
                 borderRadius: BorderRadius.circular(16),
-                boxShadow: const [
+                boxShadow: [
                   BoxShadow(
-                    color: Color(0x0C000000),
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.black.withOpacity(0.3)
+                        : const Color(0x0C000000),
                     spreadRadius: 0,
-                    offset: Offset(0, 1),
+                    offset: const Offset(0, 1),
                     blurRadius: 2,
                   )
                 ],
@@ -485,7 +584,7 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
           Container(
             height: 44,
             decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFFE5E7EB)),
+              border: Border.all(color: Theme.of(context).dividerColor),
               borderRadius: BorderRadius.circular(8),
             ),
             child: TextField(
@@ -544,7 +643,45 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          // Question Type Selection
+          Text(
+            'Question Type:',
+            style: GoogleFonts.inter(
+              color: const Color(0xFF1F2937),
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
           const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildQuestionTypeButton(
+                  'MCQ',
+                  question.type == 'MCQ',
+                  () {
+                    setState(() {
+                      question.type = 'MCQ';
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildQuestionTypeButton(
+                  'Short Question',
+                  question.type == 'Short Question',
+                  () {
+                    setState(() {
+                      question.type = 'Short Question';
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           TextField(
             controller: question.questionController,
             maxLines: 2,
@@ -553,7 +690,106 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
               border: OutlineInputBorder(),
             ),
           ),
+          // Show options for MCQ
+          if (question.type == 'MCQ') ...[
+            const SizedBox(height: 12),
+            Text(
+              'Options:',
+              style: GoogleFonts.inter(
+                color: const Color(0xFF1F2937),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...List.generate(4, (optionIndex) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Radio(
+                      value: optionIndex,
+                      groupValue: question.correctAnswerIndex,
+                      onChanged: (value) {
+                        setState(() {
+                          question.correctAnswerIndex = value!;
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: question.optionControllers[optionIndex],
+                        decoration: InputDecoration(
+                          hintText: 'Option ${String.fromCharCode(65 + optionIndex)}',
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ] else ...[
+            // Show text field for Short Question
+            const SizedBox(height: 12),
+            Text(
+              'Expected Answer (optional):',
+              style: GoogleFonts.inter(
+                color: const Color(0xFF1F2937),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: question.optionControllers[0],
+              maxLines: 2,
+              decoration: const InputDecoration(
+                hintText: 'Enter expected answer...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildQuestionTypeButton(
+    String type,
+    bool isSelected,
+    VoidCallback onTap,
+  ) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          height: 44,
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF4E9FEC) : Colors.transparent,
+            border: Border.all(
+              color: isSelected
+                  ? const Color(0xFF4E9FEC)
+                  : const Color(0xFFD1D5DB),
+            ),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Center(
+            child: Text(
+              type,
+              style: GoogleFonts.inter(
+                color: isSelected
+                    ? Colors.white
+                    : const Color(0xFF374151),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

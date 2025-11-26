@@ -113,15 +113,45 @@ service cloud.firestore {
       // Pop-up questions subcollection
       match /popupQuestions/{questionId} {
         allow read: if request.auth != null;
-        allow create, update, delete: if isInstructor() && 
+        
+        // Instructors can create, update, and delete questions
+        allow create, delete: if isInstructor() && 
                                         get(/databases/$(database)/documents/courses/$(courseId)).data.instructorId == request.auth.uid;
+        
+        // Instructors can update any field
+        // Students enrolled in the course can update the responses field to submit their answers
+        allow update: if (isInstructor() && 
+                          get(/databases/$(database)/documents/courses/$(courseId)).data.instructorId == request.auth.uid) ||
+                        (isStudent() && 
+                         // Student must be enrolled in the course (check if enrolledStudents exists and contains student)
+                         get(/databases/$(database)/documents/courses/$(courseId)).data.enrolledStudents != null &&
+                         get(/databases/$(database)/documents/courses/$(courseId)).data.enrolledStudents.hasAny([request.auth.uid]) &&
+                         // Only the responses field is being updated
+                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['responses']) &&
+                         // Ensure the student is only updating their own response entry
+                         request.resource.data.responses[request.auth.uid] != null);
       }
       
       // Quizzes subcollection
       match /quizzes/{quizId} {
         allow read: if request.auth != null;
-        allow create, update, delete: if isInstructor() && 
+        
+        // Instructors can create and delete quizzes
+        allow create, delete: if isInstructor() && 
                                         get(/databases/$(database)/documents/courses/$(courseId)).data.instructorId == request.auth.uid;
+        
+        // Instructors can update any field
+        // Students enrolled in the course can update the submissions field to submit their quiz answers
+        allow update: if (isInstructor() && 
+                          get(/databases/$(database)/documents/courses/$(courseId)).data.instructorId == request.auth.uid) ||
+                        (isStudent() && 
+                         // Student must be enrolled in the course (check if enrolledStudents exists and contains student)
+                         get(/databases/$(database)/documents/courses/$(courseId)).data.enrolledStudents != null &&
+                         get(/databases/$(database)/documents/courses/$(courseId)).data.enrolledStudents.hasAny([request.auth.uid]) &&
+                         // Only the submissions field is being updated
+                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['submissions']) &&
+                         // Ensure the student is only updating their own submission entry
+                         request.resource.data.submissions[request.auth.uid] != null);
       }
     }
     

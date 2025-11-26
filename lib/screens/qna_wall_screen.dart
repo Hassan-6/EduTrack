@@ -154,19 +154,31 @@ class _QAWallScreenState extends State<QAWallScreen> {
     
     setState(() => _currentBottomNavIndex = index);
     
-    // Navigate based on index
+    // Navigate based on index - clear stack and only keep main menu
     switch (index) {
       case 0:
-        Navigator.pushReplacementNamed(context, RouteManager.getMainMenuRoute());
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          RouteManager.getMainMenuRoute(),
+          (route) => route.settings.name == RouteManager.getMainMenuRoute(),
+        );
         break;
       case 1:
-        Navigator.pushReplacementNamed(context, RouteManager.getCoursesRoute());
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          RouteManager.getToDoListRoute(),
+          (route) => route.settings.name == RouteManager.getMainMenuRoute(),
+        );
         break;
       case 2:
         // Already on Q&A
         break;
       case 3:
-        Navigator.pushReplacementNamed(context, RouteManager.getProfileRoute());
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          RouteManager.getProfileRoute(),
+          (route) => route.settings.name == RouteManager.getMainMenuRoute(),
+        );
         break;
     }
   }

@@ -16,7 +16,7 @@ class InsAttendanceScreen extends StatefulWidget {
 }
 
 class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
-  int _currentBottomNavIndex = 1;
+  int _currentBottomNavIndex = 0; // Default to Home since attendance isn't in bottom nav
   String _generatedOtp = '';
   int _timeRemaining = 0;
   bool _isOtpGenerated = false;
@@ -97,22 +97,41 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
   }
 
   void _onBottomNavTapped(int index) {
+    if (index == _currentBottomNavIndex) return;
+    
     setState(() {
       _currentBottomNavIndex = index;
     });
 
+    // Navigate based on index - clear stack and only keep main menu
     switch (index) {
       case 0:
-        Navigator.pushReplacementNamed(context, RouteManager.getMainMenuRoute());
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          RouteManager.getMainMenuRoute(),
+          (route) => route.settings.name == RouteManager.getMainMenuRoute(),
+        );
         break;
       case 1:
-        // Already on attendance, do nothing
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          RouteManager.getToDoListRoute(),
+          (route) => route.settings.name == RouteManager.getMainMenuRoute(),
+        );
         break;
       case 2:
-        Navigator.pushReplacementNamed(context, RouteManager.getQnARoute());
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          RouteManager.getQnARoute(),
+          (route) => route.settings.name == RouteManager.getMainMenuRoute(),
+        );
         break;
       case 3:
-        Navigator.pushReplacementNamed(context, RouteManager.getProfileRoute());
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          RouteManager.getProfileRoute(),
+          (route) => route.settings.name == RouteManager.getMainMenuRoute(),
+        );
         break;
     }
   }
@@ -272,18 +291,18 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Theme.of(context).colorScheme.background, // THEME: Dynamic background
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).cardColor, // THEME: Dynamic app bar color
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1E1E1E)),
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onBackground),
           onPressed: _onBackPressed,
         ),
         title: Text(
           'Attendance',
           style: GoogleFonts.inter(
-            color: const Color(0xFF111827),
+            color: Theme.of(context).colorScheme.onBackground,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -291,7 +310,7 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.more_vert, color: Color(0xFF1E1E1E)),
+            icon: Icon(Icons.more_vert, color: Theme.of(context).colorScheme.onBackground),
             onPressed: () {
               // Additional options menu
             },
@@ -331,14 +350,16 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0xFFF3F4F6)),
+        color: Theme.of(context).cardColor, // THEME: Dynamic card color
+        border: Border.all(color: Theme.of(context).dividerColor),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x0C000000),
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.black.withOpacity(0.3)
+                : const Color(0x0C000000),
             spreadRadius: 0,
-            offset: Offset(0, 1),
+            offset: const Offset(0, 1),
             blurRadius: 2,
           ),
         ],
@@ -349,7 +370,7 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
           Text(
             'Generate OTP',
             style: GoogleFonts.inter(
-              color: const Color(0xFF1F2937),
+              color: Theme.of(context).colorScheme.onBackground,
               fontSize: 16,
               fontWeight: FontWeight.w500,
             ),
@@ -358,7 +379,7 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
           Text(
             'An OTP will be generated for this class. It will expire after 2 minutes.',
             style: GoogleFonts.inter(
-              color: const Color(0xFF6B7280),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
               fontSize: 14,
             ),
           ),
@@ -422,15 +443,15 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
                         height: 48,
                         margin: const EdgeInsets.symmetric(horizontal: 4),
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                          color: Theme.of(context).cardColor,
+                          border: Border.all(color: Theme.of(context).dividerColor),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Center(
                           child: Text(
                             _generatedOtp[index],
                             style: GoogleFonts.inter(
-                              color: const Color(0xFF1F2937),
+                              color: Theme.of(context).colorScheme.onBackground,
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
                             ),
@@ -446,7 +467,7 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
             Text(
               'Time Remaining: ${_formatTime(_timeRemaining)}',
               style: GoogleFonts.inter(
-                color: const Color(0xFF1F2937),
+                color: Theme.of(context).colorScheme.onBackground,
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
               ),
@@ -463,14 +484,16 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0xFFF3F4F6)),
+        color: Theme.of(context).cardColor, // THEME: Dynamic card color
+        border: Border.all(color: Theme.of(context).dividerColor),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x0C000000),
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.black.withOpacity(0.3)
+                : const Color(0x0C000000),
             spreadRadius: 0,
-            offset: Offset(0, 1),
+            offset: const Offset(0, 1),
             blurRadius: 2,
           ),
         ],

@@ -199,21 +199,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _onBottomNavTapped(int index) {
+    if (index == _currentBottomNavIndex) return;
+    
     setState(() {
       _currentBottomNavIndex = index;
     });
 
+    // Navigate based on index - clear stack and only keep main menu
     switch (index) {
       case 0:
-        Navigator.pushReplacementNamed(context, RouteManager.getMainMenuRoute());
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          RouteManager.getMainMenuRoute(),
+          (route) => route.settings.name == RouteManager.getMainMenuRoute(),
+        );
         break;
       case 1:
-        Navigator.pushReplacementNamed(context, RouteManager.getToDoListRoute());
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          RouteManager.getToDoListRoute(),
+          (route) => route.settings.name == RouteManager.getMainMenuRoute(),
+        );
         break;
       case 2:
-        Navigator.pushReplacementNamed(context, RouteManager.getQnARoute());
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          RouteManager.getQnARoute(),
+          (route) => route.settings.name == RouteManager.getMainMenuRoute(),
+        );
         break;
       case 3:
+        // Already on Profile
         break;
     }
   }

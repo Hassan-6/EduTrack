@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/course_model.dart';
-import '../utils/route_manager.dart';
-import 'question_results_screen.dart';
+import '../services/firebase_service.dart';
 
 class PresentQuestionScreen extends StatefulWidget {
   final Course course;
@@ -23,8 +23,9 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
     TextEditingController(),
   ];
   int _correctAnswerIndex = 0;
+  bool _hasCorrectAnswer = true; // Toggle for whether there is a correct answer
 
-  void _sendQuestion() {
+  Future<void> _sendQuestion() async {
     if (_questionController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a question')),
@@ -43,21 +44,86 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
       }
     }
 
-    // Navigate to results screen
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => QuestionResultsScreen(
-          course: widget.course,
-          question: _questionController.text,
-          questionType: _selectedQuestionType,
-          options: _selectedQuestionType == 'MCQ' 
-              ? _optionControllers.map((c) => c.text).toList()
-              : [],
-          correctAnswerIndex: _correctAnswerIndex,
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      final instructorId = FirebaseAuth.instance.currentUser?.uid;
+      if (instructorId == null) {
+        Navigator.pop(context); // Close loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User not authenticated')),
+        );
+        return;
+      }
+
+      final options = _selectedQuestionType == 'MCQ'
+          ? _optionControllers.map((c) => c.text).toList()
+          : _optionControllers[0].text.isNotEmpty
+              ? [_optionControllers[0].text]
+              : <String>[]; // For short answer, store expected answer if provided
+
+      // Create popup question in backend
+      await FirebaseService.createPopupQuestion(
+        courseId: widget.course.id,
+        instructorId: instructorId,
+        question: _questionController.text,
+        questionType: _selectedQuestionType,
+        options: options,
+        correctAnswerIndex: _hasCorrectAnswer ? _correctAnswerIndex : null,
+      );
+
+      Navigator.pop(context); // Close loading
+
+      // Show success alert
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.green, size: 24),
+              const SizedBox(width: 8),
+              Text(
+                'Question Presented',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'The question has been successfully presented to your students.',
+            style: GoogleFonts.inter(fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Close dialog
+                Navigator.pop(context); // Return to Course Details Screen
+              },
+              child: Text(
+                'OK',
+                style: GoogleFonts.inter(
+                  color: const Color(0xFF4E9FEC),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      Navigator.pop(context); // Close loading if still open
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error creating question: $e')),
+      );
+    }
   }
 
   Widget _buildMCQOptions() {
@@ -79,8 +145,8 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: const Color(0xFFE5E7EB)),
+              color: Theme.of(context).cardColor,
+              border: Border.all(color: Theme.of(context).dividerColor),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -161,28 +227,24 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
   }
 
   void _onBackPressed() {
-    Navigator.pushReplacementNamed(
-      context, 
-      RouteManager.getCourseDetailRoute(),
-      arguments: widget.course,
-    );
+    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Theme.of(context).colorScheme.background, // THEME: Dynamic background
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).cardColor, // THEME: Dynamic app bar color
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1E1E1E)),
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onBackground),
           onPressed: _onBackPressed, // FIXED: Use the new handler
         ),
         title: Text(
           'Present Question',
           style: GoogleFonts.inter(
-            color: const Color(0xFF111827),
+            color: Theme.of(context).colorScheme.onBackground,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -234,14 +296,16 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: const Color(0xFFF3F4F6)),
+                color: Theme.of(context).cardColor, // THEME: Dynamic card color
+                border: Border.all(color: Theme.of(context).dividerColor),
                 borderRadius: BorderRadius.circular(16),
-                boxShadow: const [
+                boxShadow: [
                   BoxShadow(
-                    color: Color(0x0C000000),
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.black.withOpacity(0.3)
+                        : const Color(0x0C000000),
                     spreadRadius: 0,
-                    offset: Offset(0, 1),
+                    offset: const Offset(0, 1),
                     blurRadius: 2,
                   )
                 ],
@@ -252,7 +316,7 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
                   Text(
                     'Question:',
                     style: GoogleFonts.inter(
-                      color: const Color(0xFF1F2937),
+                      color: Theme.of(context).colorScheme.onBackground,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
@@ -287,14 +351,16 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: const Color(0xFFF3F4F6)),
+                color: Theme.of(context).cardColor, // THEME: Dynamic card color
+                border: Border.all(color: Theme.of(context).dividerColor),
                 borderRadius: BorderRadius.circular(16),
-                boxShadow: const [
+                boxShadow: [
                   BoxShadow(
-                    color: Color(0x0C000000),
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.black.withOpacity(0.3)
+                        : const Color(0x0C000000),
                     spreadRadius: 0,
-                    offset: Offset(0, 1),
+                    offset: const Offset(0, 1),
                     blurRadius: 2,
                   )
                 ],
@@ -305,7 +371,7 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
                   Text(
                     'Question Type:',
                     style: GoogleFonts.inter(
-                      color: const Color(0xFF1F2937),
+                      color: Theme.of(context).colorScheme.onBackground,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
@@ -328,14 +394,16 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
               margin: const EdgeInsets.only(top: 16),
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: const Color(0xFFF3F4F6)),
+                color: Theme.of(context).cardColor, // THEME: Dynamic card color
+                border: Border.all(color: Theme.of(context).dividerColor),
                 borderRadius: BorderRadius.circular(16),
-                boxShadow: const [
+                boxShadow: [
                   BoxShadow(
-                    color: Color(0x0C000000),
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.black.withOpacity(0.3)
+                        : const Color(0x0C000000),
                     spreadRadius: 0,
-                    offset: Offset(0, 1),
+                    offset: const Offset(0, 1),
                     blurRadius: 2,
                   )
                 ],
@@ -343,6 +411,63 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
               child: _selectedQuestionType == 'MCQ' 
                   ? _buildMCQOptions() 
                   : _buildShortAnswerOptions(),
+            ),
+            const SizedBox(height: 16),
+            
+            // Toggle for correct answer
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor, // THEME: Dynamic card color
+                border: Border.all(color: Theme.of(context).dividerColor),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.black.withOpacity(0.3)
+                        : const Color(0x0C000000),
+                    spreadRadius: 0,
+                    offset: const Offset(0, 1),
+                    blurRadius: 2,
+                  )
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Has Correct Answer',
+                        style: GoogleFonts.inter(
+                          color: const Color(0xFF1F2937),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Toggle if this question has a correct answer',
+                        style: GoogleFonts.inter(
+                          color: const Color(0xFF6B7280),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Switch(
+                    value: _hasCorrectAnswer,
+                    onChanged: (value) {
+                      setState(() {
+                        _hasCorrectAnswer = value;
+                      });
+                    },
+                    activeColor: const Color(0xFF4E9FEC),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 24),
 

@@ -14,32 +14,42 @@ class InstructorCourseDetailScreen extends StatefulWidget {
   const InstructorCourseDetailScreen({super.key, required this.course});
 
   @override
-  State<InstructorCourseDetailScreen> createState() => _InstructorCourseDetailScreenState();
+  State<InstructorCourseDetailScreen> createState() =>
+      _InstructorCourseDetailScreenState();
 }
 
-class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScreen> {
+class _InstructorCourseDetailScreenState
+    extends State<InstructorCourseDetailScreen> {
   // Mock data for notifications
   final List<Map<String, String>> _notifications = [
     {
       'title': 'Lecture 7 has been uploaded.',
       'time': '3/10 11:00 PM',
-      'icon': 'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2F95f43002-a4f9-46d0-b34f-6240401cf2a9.png',
+      'icon':
+          'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2F95f43002-a4f9-46d0-b34f-6240401cf2a9.png',
     },
     {
       'title': 'Assignment 3 has been uploaded.',
       'time': '5/10 10:00 AM',
-      'icon': 'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2Fde7fb90a-a5aa-424f-9c3a-7c1ba7596fa1.png',
+      'icon':
+          'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2Fde7fb90a-a5aa-424f-9c3a-7c1ba7596fa1.png',
     },
     {
       'title': 'Quiz 2 has been scheduled',
       'time': '2/10 9:30 AM',
-      'icon': 'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2F676369d5-b87f-44a2-98cd-257f75320b56.png',
+      'icon':
+          'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2F676369d5-b87f-44a2-98cd-257f75320b56.png',
     },
   ];
 
   // Real attendance data from Firebase
   List<Map<String, dynamic>> _attendanceRecords = [];
   bool _isLoadingAttendance = true;
+
+  // Questions and quizzes history
+  List<Map<String, dynamic>> _popupQuestionsHistory = [];
+  List<Map<String, dynamic>> _quizzesHistory = [];
+  bool _isLoadingHistory = true;
 
   // Mock data for enrollment requests
   final List<Map<String, String>> _enrollmentRequests = [
@@ -52,21 +62,24 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
   void initState() {
     super.initState();
     _loadAttendanceHistory();
+    _loadQuestionsAndQuizzesHistory();
   }
 
   // Fetch attendance history from Firebase
   Future<void> _loadAttendanceHistory() async {
     try {
       // Get all attendance sessions for this course
-      final sessions = await FirebaseService.getCourseAttendanceHistory(widget.course.id);
-      
+      final sessions = await FirebaseService.getCourseAttendanceHistory(
+        widget.course.id,
+      );
+
       // Collect all unique student IDs to batch fetch profiles
       Set<String> allStudentIds = {};
       for (var session in sessions) {
         final verified = session['verifiedStudents'] as List<dynamic>? ?? [];
         allStudentIds.addAll(verified.map((id) => id.toString()));
       }
-      
+
       // Batch fetch all student profiles
       Map<String, Map<String, dynamic>> studentProfiles = {};
       for (String studentId in allStudentIds) {
@@ -79,16 +92,20 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
           print('Error fetching profile for student $studentId: $e');
         }
       }
-      
+
       // Get total enrolled students count for the course
-      final courseEnrolledCount = await FirebaseService.getCourseEnrolledStudentsCount(widget.course.id);
-      
+      final courseEnrolledCount =
+          await FirebaseService.getCourseEnrolledStudentsCount(
+            widget.course.id,
+          );
+
       // Process each session
       List<Map<String, dynamic>> processedRecords = [];
       for (var session in sessions) {
-        final verifiedStudents = session['verifiedStudents'] as List<dynamic>? ?? [];
+        final verifiedStudents =
+            session['verifiedStudents'] as List<dynamic>? ?? [];
         List<Map<String, String>> studentDetails = [];
-        
+
         // Build student details list using cached profiles
         for (var studentId in verifiedStudents) {
           final profile = studentProfiles[studentId.toString()];
@@ -98,13 +115,10 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
               'rollNumber': profile['rollNumber'] ?? 'N/A',
             });
           } else {
-            studentDetails.add({
-              'name': 'Unknown',
-              'rollNumber': 'N/A',
-            });
+            studentDetails.add({'name': 'Unknown', 'rollNumber': 'N/A'});
           }
         }
-        
+
         processedRecords.add({
           'date': _formatDate(session['createdAt']),
           'present': verifiedStudents.length,
@@ -113,7 +127,7 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
           'sessionId': session['id'],
         });
       }
-      
+
       setState(() {
         _attendanceRecords = processedRecords;
         _isLoadingAttendance = false;
@@ -161,10 +175,8 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => AttendanceRecordScreen(
-          course: widget.course,
-          record: record,
-        ),
+        builder: (context) =>
+            AttendanceRecordScreen(course: widget.course, record: record),
       ),
     );
   }
@@ -196,16 +208,68 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
     );
   }
 
-  void _viewQuestionResults() {
+  Future<void> _loadQuestionsAndQuizzesHistory() async {
+    setState(() => _isLoadingHistory = true);
+    try {
+      final questions = await FirebaseService.getPopupQuestionsHistory(
+        widget.course.id,
+      );
+      final quizzes = await FirebaseService.getQuizzesHistory(widget.course.id);
+
+      setState(() {
+        _popupQuestionsHistory = questions;
+        _quizzesHistory = quizzes;
+        _isLoadingHistory = false;
+      });
+    } catch (e) {
+      print('Error loading history: $e');
+      setState(() => _isLoadingHistory = false);
+    }
+  }
+
+  void _viewQuestionResults({
+    String? questionId,
+    Map<String, dynamic>? questionData,
+  }) {
+    if (questionId != null && questionData != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => QuestionResultsScreen(
+            course: widget.course,
+            questionId: questionId,
+            question: questionData['question'] ?? '',
+            questionType: questionData['questionType'] ?? 'MCQ',
+            options: List<String>.from(questionData['options'] ?? []),
+            correctAnswerIndex: questionData['correctAnswerIndex'] ?? 0,
+          ),
+        ),
+      );
+    } else {
+      // Fallback for backward compatibility
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => QuestionResultsScreen(
+            course: widget.course,
+            question: "Sample question from previous session",
+            questionType: "MCQ",
+            options: ["Option A", "Option B", "Option C", "Option D"],
+            correctAnswerIndex: 1,
+          ),
+        ),
+      );
+    }
+  }
+
+  void _viewQuizResults(String quizId, Map<String, dynamic> quizData) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => QuestionResultsScreen(
+        builder: (context) => QuizResultsScreen(
           course: widget.course,
-          question: "Sample question from previous session",
-          questionType: "MCQ",
-          options: ["Option A", "Option B", "Option C", "Option D"],
-          correctAnswerIndex: 1,
+          quizId: quizId,
+          quizData: quizData,
         ),
       ),
     );
@@ -287,6 +351,11 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
 
             // Instructor Tools Section
             _buildInstructorToolsSection(),
+
+            const SizedBox(height: 24),
+
+            // History Section
+            _buildHistorySection(),
           ],
         ),
       ),
@@ -300,17 +369,19 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor, // Automatically adapts
-        border: Border.all(color: Theme.of(context).dividerColor), // Automatically adapts
+        border: Border.all(
+          color: Theme.of(context).dividerColor,
+        ), // Automatically adapts
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).brightness == Brightness.dark 
+            color: Theme.of(context).brightness == Brightness.dark
                 ? Colors.black.withOpacity(0.5)
                 : const Color(0x0C000000),
             spreadRadius: 0,
             offset: const Offset(0, 1),
             blurRadius: 2,
-          )
+          ),
         ],
       ),
       child: Column(
@@ -319,7 +390,9 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
           Text(
             'Latest Notifications',
             style: GoogleFonts.inter(
-              color: Theme.of(context).colorScheme.onBackground, // Automatically adapts
+              color: Theme.of(
+                context,
+              ).colorScheme.onBackground, // Automatically adapts
               fontSize: 16,
               fontWeight: FontWeight.w500,
             ),
@@ -328,7 +401,9 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
           Text(
             'Notifications from LMS',
             style: GoogleFonts.inter(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), // Automatically adapts
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withOpacity(0.7), // Automatically adapts
               fontSize: 14,
             ),
           ),
@@ -402,7 +477,7 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
             spreadRadius: 0,
             offset: Offset(0, 1),
             blurRadius: 2,
-          )
+          ),
         ],
       ),
       child: Column(
@@ -444,11 +519,7 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
               child: Center(
                 child: Column(
                   children: [
-                    Icon(
-                      Icons.event_note,
-                      size: 48,
-                      color: Colors.grey[400],
-                    ),
+                    Icon(Icons.event_note, size: 48, color: Colors.grey[400]),
                     const SizedBox(height: 8),
                     Text(
                       'No attendance records yet',
@@ -474,7 +545,9 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
           // Show attendance records
           else
             Column(
-              children: _attendanceRecords.map((record) => _buildAttendanceItem(record)).toList(),
+              children: _attendanceRecords
+                  .map((record) => _buildAttendanceItem(record))
+                  .toList(),
             ),
         ],
       ),
@@ -548,7 +621,7 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
             spreadRadius: 0,
             offset: Offset(0, 1),
             blurRadius: 2,
-          )
+          ),
         ],
       ),
       child: Column(
@@ -607,7 +680,7 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
                   spreadRadius: 0,
                   offset: Offset(0, 4),
                   blurRadius: 6,
-                )
+                ),
               ],
               gradient: const LinearGradient(
                 colors: [Color(0xFF4E9FEC), Color(0xFF5CD6C0)],
@@ -668,7 +741,7 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
                   spreadRadius: 0,
                   offset: Offset(0, 4),
                   blurRadius: 6,
-                )
+                ),
               ],
               gradient: const LinearGradient(
                 colors: [Color(0xFF4E9FEC), Color(0xFF5CD6C0)],
@@ -711,10 +784,7 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.person_add,
-                      color: widget.course.color,
-                    ),
+                    Icon(Icons.person_add, color: widget.course.color),
                     const SizedBox(width: 8),
                     Text(
                       'View Enrollment Requests',
@@ -748,10 +818,7 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.history,
-                      color: widget.course.color,
-                    ),
+                    Icon(Icons.history, color: widget.course.color),
                     const SizedBox(width: 8),
                     Text(
                       'View Attendance History',
@@ -785,10 +852,7 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.analytics,
-                      color: widget.course.color,
-                    ),
+                    Icon(Icons.analytics, color: widget.course.color),
                     const SizedBox(width: 8),
                     Text(
                       'Review Question Results',
@@ -802,6 +866,466 @@ class _InstructorCourseDetailScreenState extends State<InstructorCourseDetailScr
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHistorySection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFF3F4F6)),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0C000000),
+            spreadRadius: 0,
+            offset: Offset(0, 1),
+            blurRadius: 2,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Questions & Quizzes History',
+            style: GoogleFonts.inter(
+              color: const Color(0xFF1F2937),
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'View past questions and quizzes with student results',
+            style: GoogleFonts.inter(
+              color: const Color(0xFF6B7280),
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          if (_isLoadingHistory)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20.0),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else ...[
+            // Popup Questions History
+            if (_popupQuestionsHistory.isNotEmpty) ...[
+              Text(
+                'Popup Questions',
+                style: GoogleFonts.inter(
+                  color: const Color(0xFF1F2937),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ..._popupQuestionsHistory.map(
+                (question) => _buildHistoryItem(
+                  title: question['question'] ?? 'Untitled Question',
+                  type: 'Question',
+                  date: _formatDate(question['createdAt']),
+                  isActive: question['isActive'] ?? false,
+                  onTap: () => _viewQuestionResults(
+                    questionId: question['id'],
+                    questionData: question,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Quizzes History
+            if (_quizzesHistory.isNotEmpty) ...[
+              Text(
+                'Quizzes',
+                style: GoogleFonts.inter(
+                  color: const Color(0xFF1F2937),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ..._quizzesHistory.map(
+                (quiz) => _buildHistoryItem(
+                  title: quiz['title'] ?? 'Untitled Quiz',
+                  type: 'Quiz',
+                  date: _formatDate(quiz['createdAt']),
+                  isActive: quiz['isActive'] ?? false,
+                  onTap: () => _viewQuizResults(quiz['id'], quiz),
+                ),
+              ),
+            ],
+
+            if (_popupQuestionsHistory.isEmpty && _quizzesHistory.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(Icons.history, size: 48, color: Colors.grey[400]),
+                      const SizedBox(height: 8),
+                      Text(
+                        'No history yet',
+                        style: GoogleFonts.inter(
+                          color: const Color(0xFF6B7280),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Questions and quizzes will appear here once created',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(
+                          color: const Color(0xFF9CA3AF),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHistoryItem({
+    required String title,
+    required String type,
+    required String date,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            title,
+                            style: GoogleFonts.inter(
+                              color: const Color(0xFF1F2937),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isActive
+                                  ? Colors.green.shade50
+                                  : Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              isActive ? 'Active' : 'Ended',
+                              style: GoogleFonts.inter(
+                                color: isActive
+                                    ? Colors.green.shade700
+                                    : Colors.grey.shade700,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Text(
+                            type,
+                            style: GoogleFonts.inter(
+                              color: const Color(0xFF6B7280),
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '•',
+                            style: GoogleFonts.inter(
+                              color: const Color(0xFF6B7280),
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            date,
+                            style: GoogleFonts.inter(
+                              color: const Color(0xFF6B7280),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  color: const Color(0xFF6B7280),
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Quiz Results Screen
+class QuizResultsScreen extends StatefulWidget {
+  final Course course;
+  final String quizId;
+  final Map<String, dynamic> quizData;
+
+  const QuizResultsScreen({
+    super.key,
+    required this.course,
+    required this.quizId,
+    required this.quizData,
+  });
+
+  @override
+  State<QuizResultsScreen> createState() => _QuizResultsScreenState();
+}
+
+class _QuizResultsScreenState extends State<QuizResultsScreen> {
+  Map<String, dynamic>? _quizResults;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadResults();
+  }
+
+  Future<void> _loadResults() async {
+    setState(() => _isLoading = true);
+    try {
+      final results = await FirebaseService.getQuizResults(
+        courseId: widget.course.id,
+        quizId: widget.quizId,
+      );
+      setState(() {
+        _quizResults = results;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading quiz results: $e');
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF1E1E1E)),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Quiz Results',
+          style: GoogleFonts.inter(
+            color: const Color(0xFF111827),
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Quiz Header
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: widget.course.gradient,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.quizData['title'] ?? 'Untitled Quiz',
+                          style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Quiz Results',
+                          style: GoogleFonts.inter(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Student Submissions
+                  if (_quizResults != null) ...[
+                    Text(
+                      'Student Submissions',
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFF1F2937),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ...(_quizResults!['enrichedSubmissions']
+                                as Map<String, dynamic>? ??
+                            {})
+                        .entries
+                        .map((entry) => _buildStudentSubmission(entry.value)),
+                  ],
+
+                  if (_quizResults == null ||
+                      (_quizResults!['enrichedSubmissions'] as Map? ?? {})
+                          .isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF9FAFB),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Center(
+                        child: Text(
+                          'No submissions yet',
+                          style: GoogleFonts.inter(
+                            color: const Color(0xFF6B7280),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildStudentSubmission(Map<String, dynamic> submission) {
+    final score = submission['score'] ?? 0;
+    final total = submission['totalQuestions'] ?? 1;
+    final percentage = submission['percentage'] ?? 0;
+    final studentName = submission['studentName'] ?? 'Unknown';
+    final rollNumber = submission['studentRollNumber'] ?? 'N/A';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                studentName,
+                style: GoogleFonts.inter(
+                  color: const Color(0xFF1F2937),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Text(
+                rollNumber,
+                style: GoogleFonts.inter(
+                  color: const Color(0xFF6B7280),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '$score/$total',
+                style: GoogleFonts.inter(
+                  color: const Color(0xFF1F2937),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                '$percentage%',
+                style: GoogleFonts.inter(
+                  color: percentage >= 70
+                      ? Colors.green.shade700
+                      : percentage >= 50
+                      ? Colors.orange.shade700
+                      : Colors.red.shade700,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -897,7 +1421,7 @@ class AttendanceRecordScreen extends StatelessWidget {
                     spreadRadius: 0,
                     offset: Offset(0, 1),
                     blurRadius: 2,
-                  )
+                  ),
                 ],
               ),
               child: Column(
@@ -943,11 +1467,7 @@ class AttendanceRecordScreen extends StatelessWidget {
               color: course.color.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              Icons.person,
-              color: course.color,
-              size: 20,
-            ),
+            child: Icon(Icons.person, color: course.color, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -992,7 +1512,8 @@ class EnrollmentRequestsScreen extends StatefulWidget {
   });
 
   @override
-  State<EnrollmentRequestsScreen> createState() => _EnrollmentRequestsScreenState();
+  State<EnrollmentRequestsScreen> createState() =>
+      _EnrollmentRequestsScreenState();
 }
 
 class _EnrollmentRequestsScreenState extends State<EnrollmentRequestsScreen> {
@@ -1005,7 +1526,7 @@ class _EnrollmentRequestsScreenState extends State<EnrollmentRequestsScreen> {
       widget.requests.removeAt(index);
     });
     widget.onUpdate();
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Request ${accepted ? 'accepted' : 'rejected'}'),
@@ -1108,13 +1629,14 @@ class _EnrollmentRequestsScreenState extends State<EnrollmentRequestsScreen> {
                           spreadRadius: 0,
                           offset: Offset(0, 1),
                           blurRadius: 2,
-                        )
+                        ),
                       ],
                     ),
                     child: Column(
                       children: List.generate(
                         widget.requests.length,
-                        (index) => _buildRequestItem(widget.requests[index], index),
+                        (index) =>
+                            _buildRequestItem(widget.requests[index], index),
                       ),
                     ),
                   ),
@@ -1144,11 +1666,7 @@ class _EnrollmentRequestsScreenState extends State<EnrollmentRequestsScreen> {
                   color: widget.course.color.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  Icons.person,
-                  color: widget.course.color,
-                  size: 20,
-                ),
+                child: Icon(Icons.person, color: widget.course.color, size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(

@@ -667,6 +667,396 @@ class FirebaseService {
     }
   }
 
+  // ==================== POPUP QUESTIONS & QUIZZES METHODS ====================
+
+  /// Create a popup question for a course
+  static Future<String> createPopupQuestion({
+    required String courseId,
+    required String instructorId,
+    required String question,
+    required String questionType, // 'MCQ' or 'Short Question'
+    required List<String> options,
+    int? correctAnswerIndex, // Optional: null if no correct answer
+  }) async {
+    try {
+      final questionData = {
+        'question': question,
+        'questionType': questionType,
+        'options': options,
+        'instructorId': instructorId,
+        'courseId': courseId,
+        'isActive': true,
+        'createdAt': FieldValue.serverTimestamp(),
+        'responses': {}, // Map of studentId -> response data
+      };
+      
+      // Only add correctAnswerIndex if provided
+      if (correctAnswerIndex != null) {
+        questionData['correctAnswerIndex'] = correctAnswerIndex;
+      }
+      
+      final docRef = await _firebaseFirestore
+          .collection('courses')
+          .doc(courseId)
+          .collection('popupQuestions')
+          .add(questionData);
+      
+      print('Popup question created with ID: ${docRef.id}');
+      return docRef.id;
+    } catch (e) {
+      print('Error creating popup question: $e');
+      rethrow;
+    }
+  }
+
+  /// Submit a student response to a popup question
+  static Future<void> submitPopupQuestionResponse({
+    required String courseId,
+    required String questionId,
+    required String studentId,
+    required dynamic response, // int for MCQ, String for Short Question
+  }) async {
+    try {
+      await _firebaseFirestore
+          .collection('courses')
+          .doc(courseId)
+          .collection('popupQuestions')
+          .doc(questionId)
+          .update({
+        'responses.$studentId': {
+          'response': response,
+          'submittedAt': FieldValue.serverTimestamp(),
+        },
+      });
+      
+      print('Response submitted for question $questionId by student $studentId');
+    } catch (e) {
+      print('Error submitting response: $e');
+      rethrow;
+    }
+  }
+
+  /// Deactivate a popup question (end the session)
+  static Future<void> deactivatePopupQuestion({
+    required String courseId,
+    required String questionId,
+  }) async {
+    try {
+      await _firebaseFirestore
+          .collection('courses')
+          .doc(courseId)
+          .collection('popupQuestions')
+          .doc(questionId)
+          .update({
+        'isActive': false,
+        'endedAt': FieldValue.serverTimestamp(),
+      });
+      
+      print('Popup question $questionId deactivated');
+    } catch (e) {
+      print('Error deactivating question: $e');
+      rethrow;
+    }
+  }
+
+  /// Get popup question results with student responses
+  static Future<Map<String, dynamic>> getPopupQuestionResults({
+    required String courseId,
+    required String questionId,
+  }) async {
+    try {
+      final doc = await _firebaseFirestore
+          .collection('courses')
+          .doc(courseId)
+          .collection('popupQuestions')
+          .doc(questionId)
+          .get();
+      
+      if (!doc.exists) {
+        throw Exception('Question not found');
+      }
+      
+      final data = doc.data() as Map<String, dynamic>;
+      data['id'] = doc.id;
+      
+      // Get student profiles for responses
+      final responses = data['responses'] as Map<String, dynamic>? ?? {};
+      Map<String, dynamic> enrichedResponses = {};
+      
+      for (var entry in responses.entries) {
+        final studentId = entry.key;
+        final responseData = entry.value as Map<String, dynamic>;
+        final studentProfile = await getUserProfile(studentId);
+        
+        enrichedResponses[studentId] = {
+          ...responseData,
+          'studentName': studentProfile?['name'] ?? 'Unknown',
+          'studentRollNumber': studentProfile?['rollNumber'] ?? 'N/A',
+        };
+      }
+      
+      data['enrichedResponses'] = enrichedResponses;
+      
+      return data;
+    } catch (e) {
+      print('Error getting question results: $e');
+      rethrow;
+    }
+  }
+
+  /// Create a quiz for a course
+  static Future<String> createQuiz({
+    required String courseId,
+    required String instructorId,
+    required String title,
+    required DateTime scheduledDate,
+    required int durationMinutes,
+    required List<Map<String, dynamic>> questions, // List of question objects
+  }) async {
+    try {
+      final docRef = await _firebaseFirestore
+          .collection('courses')
+          .doc(courseId)
+          .collection('quizzes')
+          .add({
+        'title': title,
+        'instructorId': instructorId,
+        'courseId': courseId,
+        'scheduledDate': Timestamp.fromDate(scheduledDate),
+        'durationMinutes': durationMinutes,
+        'questions': questions,
+        'isActive': true,
+        'createdAt': FieldValue.serverTimestamp(),
+        'submissions': {}, // Map of studentId -> submission data
+      });
+      
+      print('Quiz created with ID: ${docRef.id}');
+      return docRef.id;
+    } catch (e) {
+      print('Error creating quiz: $e');
+      rethrow;
+    }
+  }
+
+  /// Submit a student quiz submission
+  static Future<void> submitQuizResponse({
+    required String courseId,
+    required String quizId,
+    required String studentId,
+    required Map<String, dynamic> answers, // Map of questionIndex -> answer
+    required int score,
+    required int totalQuestions,
+  }) async {
+    try {
+      await _firebaseFirestore
+          .collection('courses')
+          .doc(courseId)
+          .collection('quizzes')
+          .doc(quizId)
+          .update({
+        'submissions.$studentId': {
+          'answers': answers,
+          'score': score,
+          'totalQuestions': totalQuestions,
+          'percentage': (score / totalQuestions * 100).round(),
+          'submittedAt': FieldValue.serverTimestamp(),
+        },
+      });
+      
+      print('Quiz submission recorded for student $studentId');
+    } catch (e) {
+      print('Error submitting quiz: $e');
+      rethrow;
+    }
+  }
+
+  /// Deactivate a quiz (end the quiz session)
+  static Future<void> deactivateQuiz({
+    required String courseId,
+    required String quizId,
+  }) async {
+    try {
+      await _firebaseFirestore
+          .collection('courses')
+          .doc(courseId)
+          .collection('quizzes')
+          .doc(quizId)
+          .update({
+        'isActive': false,
+        'endedAt': FieldValue.serverTimestamp(),
+      });
+      
+      print('Quiz $quizId deactivated');
+    } catch (e) {
+      print('Error deactivating quiz: $e');
+      rethrow;
+    }
+  }
+
+  /// Get quiz results with all student submissions
+  static Future<Map<String, dynamic>> getQuizResults({
+    required String courseId,
+    required String quizId,
+  }) async {
+    try {
+      final doc = await _firebaseFirestore
+          .collection('courses')
+          .doc(courseId)
+          .collection('quizzes')
+          .doc(quizId)
+          .get();
+      
+      if (!doc.exists) {
+        throw Exception('Quiz not found');
+      }
+      
+      final data = doc.data() as Map<String, dynamic>;
+      data['id'] = doc.id;
+      
+      // Get student profiles for submissions
+      final submissions = data['submissions'] as Map<String, dynamic>? ?? {};
+      Map<String, dynamic> enrichedSubmissions = {};
+      
+      for (var entry in submissions.entries) {
+        final studentId = entry.key;
+        final submissionData = entry.value as Map<String, dynamic>;
+        final studentProfile = await getUserProfile(studentId);
+        
+        enrichedSubmissions[studentId] = {
+          ...submissionData,
+          'studentName': studentProfile?['name'] ?? 'Unknown',
+          'studentRollNumber': studentProfile?['rollNumber'] ?? 'N/A',
+        };
+      }
+      
+      data['enrichedSubmissions'] = enrichedSubmissions;
+      
+      return data;
+    } catch (e) {
+      print('Error getting quiz results: $e');
+      rethrow;
+    }
+  }
+
+  /// Update grade for a short answer question in a quiz submission
+  static Future<void> updateQuizShortQuestionGrade({
+    required String courseId,
+    required String quizId,
+    required String studentId,
+    required int questionIndex,
+    required bool isCorrect,
+  }) async {
+    try {
+      // Get current submission
+      final quizDoc = await _firebaseFirestore
+          .collection('courses')
+          .doc(courseId)
+          .collection('quizzes')
+          .doc(quizId)
+          .get();
+      
+      if (!quizDoc.exists) {
+        throw Exception('Quiz not found');
+      }
+      
+      final quizData = quizDoc.data() as Map<String, dynamic>;
+      final submissions = quizData['submissions'] as Map<String, dynamic>? ?? {};
+      final submission = submissions[studentId] as Map<String, dynamic>? ?? {};
+      
+      // Get current short question grades
+      final shortQuestionGrades = Map<String, dynamic>.from(
+        submission['shortQuestionGrades'] as Map<String, dynamic>? ?? {},
+      );
+      
+      // Update the grade for this question
+      shortQuestionGrades[questionIndex.toString()] = isCorrect;
+      
+      // Recalculate score
+      final questions = quizData['questions'] as List<dynamic>? ?? [];
+      final answers = submission['answers'] as Map<String, dynamic>? ?? {};
+      int score = 0;
+      
+      for (int i = 0; i < questions.length; i++) {
+        final question = questions[i] as Map<String, dynamic>;
+        final questionType = question['questionType'] as String? ?? 'MCQ';
+        
+        if (questionType == 'MCQ') {
+          // Auto-grade MCQ
+          final correctIndex = question['correctAnswerIndex'] as int?;
+          final answer = answers[i.toString()];
+          if (correctIndex != null && answer == correctIndex) {
+            score++;
+          }
+        } else {
+          // Check if short question is graded
+          final gradeKey = i.toString();
+          if (shortQuestionGrades.containsKey(gradeKey) && shortQuestionGrades[gradeKey] == true) {
+            score++;
+          }
+        }
+      }
+      
+      // Update submission with new grade and recalculated score
+      await _firebaseFirestore
+          .collection('courses')
+          .doc(courseId)
+          .collection('quizzes')
+          .doc(quizId)
+          .update({
+        'submissions.$studentId.shortQuestionGrades': shortQuestionGrades,
+        'submissions.$studentId.score': score,
+        'submissions.$studentId.percentage': (score / questions.length * 100).round(),
+      });
+      
+      print('Updated short question grade for student $studentId, question $questionIndex');
+    } catch (e) {
+      print('Error updating short question grade: $e');
+      rethrow;
+    }
+  }
+
+  /// Get all popup questions for a course (including inactive ones for history)
+  static Future<List<Map<String, dynamic>>> getPopupQuestionsHistory(String courseId) async {
+    try {
+      QuerySnapshot snapshot = await _firebaseFirestore
+          .collection('courses')
+          .doc(courseId)
+          .collection('popupQuestions')
+          .orderBy('createdAt', descending: true)
+          .get();
+      
+      return snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    } catch (e) {
+      print('Error fetching popup questions history: $e');
+      return [];
+    }
+  }
+
+  /// Get all quizzes for a course (including inactive ones for history)
+  static Future<List<Map<String, dynamic>>> getQuizzesHistory(String courseId) async {
+    try {
+      QuerySnapshot snapshot = await _firebaseFirestore
+          .collection('courses')
+          .doc(courseId)
+          .collection('quizzes')
+          .orderBy('createdAt', descending: true)
+          .get();
+      
+      return snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    } catch (e) {
+      print('Error fetching quizzes history: $e');
+      return [];
+    }
+  }
+
   // Attendance Management Methods
   
   /// Create an attendance session for a course with OTP
