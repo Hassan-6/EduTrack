@@ -6,6 +6,7 @@ import 'dart:math';
 import '../utils/theme_provider.dart';
 import '../services/auth_provider.dart';
 import '../services/firebase_service.dart';
+import '../utils/course_categories.dart';
 
 class CreateCourseScreen extends StatefulWidget {
   const CreateCourseScreen({super.key});
@@ -19,9 +20,10 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   
-  String? _generatedOTP;
-  bool _isGeneratingOTP = false;
+  String? _generatedCode;
+  bool _isGeneratingCode = false;
   bool _isCreatingCourse = false;
+  String _selectedCategoryId = CourseCategories.computerScience.id;
 
   @override
   void dispose() {
@@ -30,32 +32,32 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
     super.dispose();
   }
 
-  String _generateOTP() {
+  String _generateCode() {
     final random = Random();
-    // Generate a 6-digit OTP
+    // Generate a 6-digit code
     return (100000 + random.nextInt(900000)).toString();
   }
 
-  void _generateCourseOTP() {
+  void _generateCourseCode() {
     setState(() {
-      _isGeneratingOTP = true;
+      _isGeneratingCode = true;
     });
 
     // Simulate generation delay for UX
     Future.delayed(const Duration(milliseconds: 500), () {
       setState(() {
-        _generatedOTP = _generateOTP();
-        _isGeneratingOTP = false;
+        _generatedCode = _generateCode();
+        _isGeneratingCode = false;
       });
     });
   }
 
-  void _copyOTPToClipboard() {
-    if (_generatedOTP != null) {
-      Clipboard.setData(ClipboardData(text: _generatedOTP!));
+  void _copyCodeToClipboard() {
+    if (_generatedCode != null) {
+      Clipboard.setData(ClipboardData(text: _generatedCode!));
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('OTP copied to clipboard!'),
+          content: Text('Code copied to clipboard!'),
           backgroundColor: Colors.green,
           duration: Duration(seconds: 2),
         ),
@@ -68,10 +70,10 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
       return;
     }
 
-    if (_generatedOTP == null) {
+    if (_generatedCode == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please generate an OTP first'),
+          content: Text('Please generate a code first'),
           backgroundColor: Colors.red,
         ),
       );
@@ -97,9 +99,10 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
       final courseData = {
         'title': _titleController.text.trim(),
         'description': _descriptionController.text.trim(),
-        'otp': _generatedOTP,
+        'otp': _generatedCode,
         'instructorId': userId,
         'instructorName': instructorName,
+        'category': _selectedCategoryId,
         'createdAt': DateTime.now().toIso8601String(),
         'isActive': true,
       };
@@ -173,10 +176,14 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
 
               // Course Description
               _buildDescriptionField(),
+              const SizedBox(height: 24),
+
+              // Category Selection
+              _buildCategoryField(),
               const SizedBox(height: 32),
 
-              // OTP Generation Section
-              _buildOTPSection(themeProvider),
+              // Code Generation Section
+              _buildCodeSection(themeProvider),
               const SizedBox(height: 32),
 
               // Instructions
@@ -340,7 +347,87 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
     );
   }
 
-  Widget _buildOTPSection(ThemeProvider themeProvider) {
+  Widget _buildCategoryField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Course Category',
+          style: GoogleFonts.inter(
+            color: Theme.of(context).colorScheme.onBackground,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: CourseCategories.all.map((category) {
+            final isSelected = _selectedCategoryId == category.id;
+            return InkWell(
+              onTap: () {
+                setState(() {
+                  _selectedCategoryId = category.id;
+                });
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? category.primaryColor.withOpacity(0.15)
+                      : Theme.of(context).brightness == Brightness.dark
+                          ? Colors.black.withOpacity(0.2)
+                          : const Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSelected
+                        ? category.primaryColor
+                        : Theme.of(context).dividerColor,
+                    width: isSelected ? 2 : 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      category.icon,
+                      color: isSelected
+                          ? category.primaryColor
+                          : Theme.of(context).colorScheme.onSurface,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      category.name,
+                      style: GoogleFonts.inter(
+                        color: isSelected
+                            ? category.primaryColor
+                            : Theme.of(context).colorScheme.onBackground,
+                        fontSize: 14,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          CourseCategories.getById(_selectedCategoryId).description,
+          style: GoogleFonts.inter(
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCodeSection(ThemeProvider themeProvider) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -369,7 +456,7 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Course Enrollment OTP',
+                'Course Enrollment Code',
                 style: GoogleFonts.inter(
                   color: Theme.of(context).colorScheme.onBackground,
                   fontSize: 16,
@@ -380,14 +467,14 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
           ),
           const SizedBox(height: 16),
           
-          if (_generatedOTP == null)
-            // Generate OTP Button
+          if (_generatedCode == null)
+            // Generate Code Button
             SizedBox(
               width: double.infinity,
               height: 48,
               child: OutlinedButton.icon(
-                onPressed: _isGeneratingOTP ? null : _generateCourseOTP,
-                icon: _isGeneratingOTP
+                onPressed: _isGeneratingCode ? null : _generateCourseCode,
+                icon: _isGeneratingCode
                     ? const SizedBox(
                         width: 20,
                         height: 20,
@@ -395,7 +482,7 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
                       )
                     : const Icon(Icons.refresh),
                 label: Text(
-                  _isGeneratingOTP ? 'Generating...' : 'Generate OTP',
+                  _isGeneratingCode ? 'Generating...' : 'Generate Code',
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -437,7 +524,7 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
                         scrollDirection: Axis.horizontal,
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: _generatedOTP!.split('').map((digit) {
+                          children: _generatedCode!.split('').map((digit) {
                             return Container(
                               margin: const EdgeInsets.symmetric(horizontal: 3),
                               padding: const EdgeInsets.symmetric(
@@ -472,7 +559,7 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: _copyOTPToClipboard,
+                        onPressed: _copyCodeToClipboard,
                         icon: const Icon(Icons.copy, size: 18),
                         label: Text(
                           'Copy Code',
@@ -492,9 +579,9 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
                       child: OutlinedButton.icon(
                         onPressed: () {
                           setState(() {
-                            _generatedOTP = null;
+                            _generatedCode = null;
                           });
-                          _generateCourseOTP();
+                          _generateCourseCode();
                         },
                         icon: const Icon(Icons.refresh, size: 18),
                         label: Text(

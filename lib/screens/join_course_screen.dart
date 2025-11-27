@@ -14,27 +14,27 @@ class JoinCourseScreen extends StatefulWidget {
 }
 
 class _JoinCourseScreenState extends State<JoinCourseScreen> {
-  final TextEditingController _otpController = TextEditingController();
+  final TextEditingController _codeController = TextEditingController();
   
   bool _isVerifying = false;
-  bool _isOTPEntered = false;
+  bool _isCodeEntered = false;
   Map<String, dynamic>? _foundCourse;
 
   @override
   void dispose() {
-    _otpController.dispose();
+    _codeController.dispose();
     super.dispose();
   }
 
-  String _getEnteredOTP() {
-    return _otpController.text;
+  String _getEnteredCode() {
+    return _codeController.text;
   }
 
-  Future<void> _verifyOTP() async {
-    if (!_isOTPEntered) {
+  Future<void> _verifyCode() async {
+    if (!_isCodeEntered) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter the complete OTP'),
+          content: Text('Please enter the complete code'),
           backgroundColor: Colors.red,
         ),
       );
@@ -46,14 +46,14 @@ class _JoinCourseScreenState extends State<JoinCourseScreen> {
     });
 
     try {
-      final otp = _getEnteredOTP();
-      final course = await FirebaseService.getCourseByOTP(otp);
+      final code = _getEnteredCode();
+      final course = await FirebaseService.getCourseByOTP(code);
 
       if (course == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Invalid OTP. Please check and try again.'),
+              content: Text('Invalid code. Please check and try again.'),
               backgroundColor: Colors.red,
             ),
           );
@@ -104,6 +104,7 @@ class _JoinCourseScreenState extends State<JoinCourseScreen> {
         'studentName': userProfile?['name'] ?? 'Student',
         'studentEmail': authProvider.currentUser?.email ?? '',
         'rollNumber': userProfile?['rollNumber'] ?? 'N/A',
+        'profileIconIndex': userProfile?['profileIconIndex'] ?? 0,
       };
 
       await FirebaseService.requestCourseEnrollment(
@@ -196,8 +197,8 @@ class _JoinCourseScreenState extends State<JoinCourseScreen> {
             _buildHeaderSection(),
             const SizedBox(height: 32),
 
-            // OTP Input Section
-            _buildOTPInputSection(),
+            // Code Input Section
+            _buildCodeInputSection(),
             const SizedBox(height: 24),
 
             // Verify Button
@@ -246,7 +247,7 @@ class _JoinCourseScreenState extends State<JoinCourseScreen> {
     );
   }
 
-  Widget _buildOTPInputSection() {
+  Widget _buildCodeInputSection() {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -276,7 +277,7 @@ class _JoinCourseScreenState extends State<JoinCourseScreen> {
           ),
           const SizedBox(height: 20),
           
-          // Single OTP Input Field
+          // Single Code Input Field
           Container(
             width: 280,
             height: 80,
@@ -288,7 +289,7 @@ class _JoinCourseScreenState extends State<JoinCourseScreen> {
               ),
             ),
             child: TextField(
-              controller: _otpController,
+              controller: _codeController,
               textAlign: TextAlign.center,
               maxLength: 6,
               keyboardType: TextInputType.number,
@@ -312,7 +313,7 @@ class _JoinCourseScreenState extends State<JoinCourseScreen> {
               ),
               onChanged: (value) {
                 setState(() {
-                  _isOTPEntered = value.length == 6;
+                  _isCodeEntered = value.length == 6;
                 });
               },
             ),
@@ -329,9 +330,9 @@ class _JoinCourseScreenState extends State<JoinCourseScreen> {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          gradient: _isOTPEntered ? themeProvider.gradient : null,
-          color: _isOTPEntered ? null : Colors.grey.shade300,
-          boxShadow: _isOTPEntered ? const [
+          gradient: _isCodeEntered ? themeProvider.gradient : null,
+          color: _isCodeEntered ? null : Colors.grey.shade300,
+          boxShadow: _isCodeEntered ? const [
             BoxShadow(
               color: Color(0x19000000),
               spreadRadius: 0,
@@ -344,7 +345,7 @@ class _JoinCourseScreenState extends State<JoinCourseScreen> {
           color: Colors.transparent,
           child: InkWell(
             borderRadius: BorderRadius.circular(12),
-            onTap: (_isOTPEntered && !_isVerifying) ? _verifyOTP : null,
+            onTap: (_isCodeEntered && !_isVerifying) ? _verifyCode : null,
             child: Center(
               child: _isVerifying
                   ? const SizedBox(
@@ -358,7 +359,7 @@ class _JoinCourseScreenState extends State<JoinCourseScreen> {
                   : Text(
                       'Verify Code',
                       style: GoogleFonts.inter(
-                        color: _isOTPEntered ? Colors.white : Colors.grey.shade600,
+                        color: _isCodeEntered ? Colors.white : Colors.grey.shade600,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),

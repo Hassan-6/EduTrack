@@ -54,10 +54,24 @@ class _InstructorCourseDetailScreenState
         _courseData['id'],
       );
 
+      // Update quiz statuses based on schedule
+      for (var quiz in quizzes) {
+        await FirebaseService.updateQuizStatus(
+          courseId: _courseData['id'],
+          quizId: quiz['id'],
+          quizData: quiz,
+        );
+      }
+      
+      // Fetch updated quiz list after status updates
+      final updatedQuizzes = await FirebaseService.getQuizzesHistory(
+        _courseData['id'],
+      );
+
       if (mounted) {
         setState(() {
           _popupQuestionsHistory = questions;
-          _quizzesHistory = quizzes;
+          _quizzesHistory = updatedQuizzes;
           _isLoadingHistory = false;
         });
       }
@@ -227,11 +241,11 @@ class _InstructorCourseDetailScreenState
     }
   }
 
-  void _copyOTP() {
+  void _copyCode() {
     Clipboard.setData(ClipboardData(text: _courseData['otp'] ?? ''));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('OTP copied to clipboard!'),
+        content: Text('Code copied to clipboard!'),
         backgroundColor: Colors.green,
         duration: Duration(seconds: 2),
       ),
@@ -502,7 +516,7 @@ class _InstructorCourseDetailScreenState
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'Course OTP',
+                                        'Course Code',
                                         style: GoogleFonts.inter(
                                           fontSize: 12,
                                           color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
@@ -524,7 +538,7 @@ class _InstructorCourseDetailScreenState
                                 IconButton(
                                   icon: const Icon(Icons.copy, size: 20),
                                   color: const Color(0xFF2563EB),
-                                  onPressed: _copyOTP,
+                                  onPressed: _copyCode,
                                 ),
                               ],
                             ),
@@ -1359,7 +1373,7 @@ class _InstructorCourseDetailScreenState
                 ),
               ),
             const SizedBox(width: 8),
-            const Icon(Icons.chevron_right, color: Color(0xFF9CA3AF)),
+            Icon(Icons.chevron_right, color: Theme.of(context).hintColor),
           ],
         ),
       ),

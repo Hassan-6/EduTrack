@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../widgets/course_model.dart';
+import 'profile_screen.dart';
+import 'profile_viewer_screen.dart';
+import '../services/firebase_service.dart';
 
 class AttendanceRecordScreen extends StatelessWidget {
   final Course course;
@@ -21,18 +24,18 @@ class AttendanceRecordScreen extends StatelessWidget {
     final percentage = total > 0 ? (present / total * 100).toStringAsFixed(1) : '0.0';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
+      backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).cardColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1F2937)),
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           'Attendance Details',
           style: GoogleFonts.inter(
-            color: const Color(0xFF1F2937),
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 20,
             fontWeight: FontWeight.w600,
           ),
@@ -45,7 +48,7 @@ class AttendanceRecordScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(16),
               boxShadow: const [
                 BoxShadow(
@@ -83,7 +86,7 @@ class AttendanceRecordScreen extends StatelessWidget {
                           Text(
                             course.name,
                             style: GoogleFonts.inter(
-                              color: const Color(0xFF1F2937),
+                              color: Theme.of(context).colorScheme.onSurface,
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
                             ),
@@ -92,7 +95,7 @@ class AttendanceRecordScreen extends StatelessWidget {
                           Text(
                             date,
                             style: GoogleFonts.inter(
-                              color: const Color(0xFF6B7280),
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                               fontSize: 14,
                             ),
                           ),
@@ -110,6 +113,7 @@ class AttendanceRecordScreen extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _buildStatCard(
+                        context,
                         'Present',
                         present.toString(),
                         Icons.check_circle,
@@ -119,6 +123,7 @@ class AttendanceRecordScreen extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: _buildStatCard(
+                        context,
                         'Total',
                         total.toString(),
                         Icons.people,
@@ -128,6 +133,7 @@ class AttendanceRecordScreen extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: _buildStatCard(
+                        context,
                         'Rate',
                         '$percentage%',
                         Icons.pie_chart,
@@ -148,7 +154,7 @@ class AttendanceRecordScreen extends StatelessWidget {
               Text(
                 'Present Students',
                 style: GoogleFonts.inter(
-                  color: const Color(0xFF1F2937),
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                 ),
@@ -177,7 +183,7 @@ class AttendanceRecordScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(40),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Center(
@@ -192,7 +198,7 @@ class AttendanceRecordScreen extends StatelessWidget {
                     Text(
                       'No students marked present',
                       style: GoogleFonts.inter(
-                        color: const Color(0xFF6B7280),
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                         fontSize: 14,
                       ),
                     ),
@@ -206,9 +212,7 @@ class AttendanceRecordScreen extends StatelessWidget {
               final student = entry.value as Map<String, dynamic>;
               return _buildStudentCard(
                 context,
-                student['name'] ?? 'Unknown',
-                student['rollNumber'] ?? 'N/A',
-                student['photoURL'] ?? '',
+                student,
                 index + 1,
               );
             }),
@@ -217,7 +221,7 @@ class AttendanceRecordScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
+  Widget _buildStatCard(BuildContext context, String label, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -231,7 +235,7 @@ class AttendanceRecordScreen extends StatelessWidget {
           Text(
             value,
             style: GoogleFonts.inter(
-              color: const Color(0xFF1F2937),
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 20,
               fontWeight: FontWeight.w700,
             ),
@@ -240,7 +244,7 @@ class AttendanceRecordScreen extends StatelessWidget {
           Text(
             label,
             style: GoogleFonts.inter(
-              color: const Color(0xFF6B7280),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
               fontSize: 12,
             ),
           ),
@@ -249,18 +253,53 @@ class AttendanceRecordScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStudentCard(BuildContext context, String name, String rollNumber, String photoURL, int index) {
+  Widget _buildStudentCard(BuildContext context, Map<String, dynamic> student, int index) {
+    final name = student['name'] ?? 'Unknown';
+    final rollNumber = student['rollNumber'] ?? 'N/A';
+    final photoURL = student['photoURL'] ?? '';
+    final studentId = student['studentId'] ?? student['id'];
+    
     return InkWell(
-      onTap: photoURL.isNotEmpty
-          ? () => _showStudentPhoto(context, name, photoURL)
-          : null,
+      onTap: studentId != null
+          ? () async {
+              try {
+                final profile = await FirebaseService.getUserProfile(studentId);
+                if (profile != null && context.mounted) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ProfileViewerScreen(
+                        userProfile: UserProfile(
+                          name: profile['name'] ?? name,
+                          username: '@${(profile['rollNumber'] ?? rollNumber).toLowerCase()}',
+                          major: profile['major'] ?? 'Not specified',
+                          age: profile['age'] ?? '',
+                          rollNumber: profile['rollNumber'] ?? rollNumber,
+                          phoneNumber: profile['phoneNumber'] ?? '',
+                          email: profile['email'] ?? '',
+                          semester: profile['semester'] ?? 'Not specified',
+                          cgpa: profile['cgpa'] ?? 'N/A',
+                          profileIconIndex: profile['profileIconIndex'] ?? 0,
+                        ),
+                      ),
+                    ),
+                  );
+                }
+              } catch (e) {
+                print('Error loading student profile: $e');
+                if (photoURL.isNotEmpty && context.mounted) {
+                  _showStudentPhoto(context, name, photoURL);
+                }
+              }
+            }
+          : (photoURL.isNotEmpty ? () => _showStudentPhoto(context, name, photoURL) : null),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         child: Row(
           children: [
@@ -292,7 +331,7 @@ class AttendanceRecordScreen extends StatelessWidget {
                   Text(
                     name,
                     style: GoogleFonts.inter(
-                      color: const Color(0xFF1F2937),
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
                     ),
@@ -301,7 +340,7 @@ class AttendanceRecordScreen extends StatelessWidget {
                   Text(
                     rollNumber,
                     style: GoogleFonts.inter(
-                      color: const Color(0xFF6B7280),
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                       fontSize: 13,
                     ),
                   ),
@@ -346,7 +385,7 @@ class AttendanceRecordScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -360,7 +399,7 @@ class AttendanceRecordScreen extends StatelessWidget {
                         style: GoogleFonts.inter(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xFF1F2937),
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                       IconButton(
@@ -404,7 +443,7 @@ class AttendanceRecordScreen extends StatelessWidget {
                               Text(
                                 'Failed to load photo',
                                 style: GoogleFonts.inter(
-                                  color: const Color(0xFF6B7280),
+                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                                 ),
                               ),
                             ],

@@ -3,6 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../utils/theme_provider.dart';
 import '../services/firebase_service.dart';
+import '../widgets/profile_avatar.dart';
+import 'profile_screen.dart';
+import 'profile_viewer_screen.dart';
 
 class EnrollmentRequestsScreen extends StatefulWidget {
   final String courseId;
@@ -298,6 +301,7 @@ class _EnrollmentRequestsScreenState extends State<EnrollmentRequestsScreen> {
     final studentName = request['studentName'] as String? ?? 'Unknown Student';
     final rollNumber = request['rollNumber'] as String? ?? 'N/A';
     final studentEmail = request['studentEmail'] as String? ?? '';
+    final profileIconIndex = request['profileIconIndex'] as int? ?? 0;
     final isProcessing = _processingRequests.contains(studentId);
 
     return Container(
@@ -320,14 +324,33 @@ class _EnrollmentRequestsScreenState extends State<EnrollmentRequestsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
-                child: Icon(
-                  Icons.person,
-                  color: Theme.of(context).primaryColor,
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProfileViewerScreen(
+                    userProfile: UserProfile(
+                      name: studentName,
+                      username: '@${rollNumber.toLowerCase()}',
+                      major: request['major'] ?? 'Not specified',
+                      age: request['age'] ?? '',
+                      rollNumber: rollNumber,
+                      phoneNumber: request['phoneNumber'] ?? '',
+                      email: studentEmail,
+                      semester: request['semester'] ?? 'Not specified',
+                      cgpa: request['cgpa'] ?? 'N/A',
+                      profileIconIndex: profileIconIndex,
+                    ),
+                  ),
                 ),
+              );
+            },
+            child: Row(
+            children: [
+              ProfileAvatar(
+                iconIndex: profileIconIndex,
+                radius: 20,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -354,6 +377,7 @@ class _EnrollmentRequestsScreenState extends State<EnrollmentRequestsScreen> {
                 ),
               ),
             ],
+            ),
           ),
           if (studentEmail.isNotEmpty) ...[
             const SizedBox(height: 12),

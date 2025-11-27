@@ -100,13 +100,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1E1E1E)),
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           'Reset Password',
           style: GoogleFonts.inter(
-            color: const Color(0xFF1E1E1E),
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -137,7 +137,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             Text(
               _emailSent ? 'Check Your Email' : 'Forgot Password?',
               style: GoogleFonts.inter(
-                color: const Color(0xFF1E1E1E),
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 24,
                 fontWeight: FontWeight.w600,
               ),
@@ -148,7 +148,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   ? 'We sent a password reset link to your email. Click the link to set a new password.'
                   : 'Enter your email address and we\'ll send you a link to reset your password.',
               style: GoogleFonts.inter(
-                color: const Color(0xFF6B7280),
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                 fontSize: 14,
                 height: 1.5,
               ),
@@ -158,7 +158,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               Text(
                 'Email Address',
                 style: GoogleFonts.inter(
-                  color: const Color(0xFF4B5563),
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),
@@ -167,7 +167,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               Container(
                 decoration: BoxDecoration(
                   color: const Color(0xFFF9FAFB),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  border: Border.all(color: Theme.of(context).dividerColor),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: TextField(
@@ -178,12 +178,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     hintText: 'your.email@example.com',
                     hintStyle: GoogleFonts.inter(
-                      color: const Color(0xFFD1D5DB),
+                      color: Theme.of(context).hintColor,
                       fontSize: 14,
                     ),
                   ),
                   style: GoogleFonts.inter(
-                    color: const Color(0xFF1F2937),
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 14,
                   ),
                 ),
@@ -288,7 +288,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               child: Text(
                 'Didn\'t receive the email? Check your spam folder.',
                 style: GoogleFonts.inter(
-                  color: const Color(0xFF9CA3AF),
+                  color: Theme.of(context).hintColor,
                   fontSize: 12,
                 ),
               ),

@@ -134,7 +134,7 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
         Text(
           'Options:',
           style: GoogleFonts.inter(
-            color: const Color(0xFF1F2937),
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 16,
             fontWeight: FontWeight.w500,
           ),
@@ -168,11 +168,11 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
                       hintText: 'Option ${String.fromCharCode(65 + index)}',
                       border: InputBorder.none,
                       hintStyle: GoogleFonts.inter(
-                        color: const Color(0xFF9CA3AF),
+                        color: Theme.of(context).hintColor,
                       ),
                     ),
                     style: GoogleFonts.inter(
-                      color: const Color(0xFF1F2937),
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 14,
                     ),
                   ),
@@ -193,7 +193,7 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
         Text(
           'Correct Answer:',
           style: GoogleFonts.inter(
-            color: const Color(0xFF1F2937),
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 16,
             fontWeight: FontWeight.w500,
           ),
@@ -202,8 +202,8 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0xFFE5E7EB)),
+            color: Theme.of(context).colorScheme.surface,
+            border: Border.all(color: Theme.of(context).dividerColor),
             borderRadius: BorderRadius.circular(8),
           ),
           child: TextField(
@@ -213,11 +213,11 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
               hintText: 'Enter the correct answer...',
               border: InputBorder.none,
               hintStyle: GoogleFonts.inter(
-                color: const Color(0xFF9CA3AF),
+                color: Theme.of(context).hintColor,
               ),
             ),
             style: GoogleFonts.inter(
-              color: const Color(0xFF1F2937),
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 14,
             ),
           ),
@@ -337,7 +337,7 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
                       ),
                     ),
                     style: GoogleFonts.inter(
-                      color: const Color(0xFF1F2937),
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 14,
                     ),
                   ),
@@ -442,7 +442,7 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
                       Text(
                         'Has Correct Answer',
                         style: GoogleFonts.inter(
-                          color: const Color(0xFF1F2937),
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
                         ),
@@ -451,7 +451,7 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
                       Text(
                         'Toggle if this question has a correct answer',
                         style: GoogleFonts.inter(
-                          color: const Color(0xFF6B7280),
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                           fontSize: 12,
                         ),
                       ),
@@ -537,7 +537,7 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
             decoration: BoxDecoration(
               color: isSelected ? const Color(0xFF4E9FEC) : Colors.transparent,
               border: Border.all(
-                color: isSelected ? const Color(0xFF4E9FEC) : const Color(0xFFD1D5DB),
+                color: isSelected ? const Color(0xFF4E9FEC) : Theme.of(context).dividerColor,
               ),
               borderRadius: BorderRadius.circular(8),
             ),
@@ -545,7 +545,7 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
               child: Text(
                 type,
                 style: GoogleFonts.inter(
-                  color: isSelected ? Colors.white : const Color(0xFF374151),
+                  color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),

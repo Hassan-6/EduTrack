@@ -293,7 +293,7 @@ class _InstructorCourseDetailScreenState
         title: Text(
           widget.course.name,
           style: GoogleFonts.inter(
-            color: const Color(0xFF111827),
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -486,7 +486,7 @@ class _InstructorCourseDetailScreenState
           Text(
             'Attendance Records',
             style: GoogleFonts.inter(
-              color: const Color(0xFF1F2937),
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 16,
               fontWeight: FontWeight.w500,
             ),
@@ -495,7 +495,7 @@ class _InstructorCourseDetailScreenState
           Text(
             'View attendance records for your course',
             style: GoogleFonts.inter(
-              color: const Color(0xFF6B7280),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
               fontSize: 14,
             ),
           ),
@@ -524,7 +524,7 @@ class _InstructorCourseDetailScreenState
                     Text(
                       'No attendance records yet',
                       style: GoogleFonts.inter(
-                        color: const Color(0xFF6B7280),
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
@@ -534,7 +534,7 @@ class _InstructorCourseDetailScreenState
                       'Attendance sessions will appear here once you generate OTPs',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.inter(
-                        color: const Color(0xFF9CA3AF),
+                        color: Theme.of(context).hintColor,
                         fontSize: 12,
                       ),
                     ),
@@ -579,7 +579,7 @@ class _InstructorCourseDetailScreenState
                     Text(
                       'Date: ${record['date']}',
                       style: GoogleFonts.inter(
-                        color: const Color(0xFF1F2937),
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
@@ -588,7 +588,7 @@ class _InstructorCourseDetailScreenState
                     Text(
                       'Attendance: ${record['present']}/${record['total']} students',
                       style: GoogleFonts.inter(
-                        color: const Color(0xFF6B7280),
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                         fontSize: 12,
                       ),
                     ),
@@ -596,7 +596,7 @@ class _InstructorCourseDetailScreenState
                 ),
                 Icon(
                   Icons.arrow_forward_ios,
-                  color: const Color(0xFF6B7280),
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                   size: 16,
                 ),
               ],
@@ -630,7 +630,7 @@ class _InstructorCourseDetailScreenState
           Text(
             'Instructor Tools',
             style: GoogleFonts.inter(
-              color: const Color(0xFF1F2937),
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 16,
               fontWeight: FontWeight.w500,
             ),
@@ -639,7 +639,7 @@ class _InstructorCourseDetailScreenState
           Text(
             'Manage your course activities',
             style: GoogleFonts.inter(
-              color: const Color(0xFF6B7280),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
               fontSize: 14,
             ),
           ),
@@ -649,7 +649,7 @@ class _InstructorCourseDetailScreenState
           Text(
             'Present Question',
             style: GoogleFonts.inter(
-              color: const Color(0xFF1F2937),
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -658,7 +658,7 @@ class _InstructorCourseDetailScreenState
           Text(
             'Send a real-time question to your students',
             style: GoogleFonts.inter(
-              color: const Color(0xFF6B7280),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
               fontSize: 12,
             ),
           ),
@@ -710,7 +710,7 @@ class _InstructorCourseDetailScreenState
           Text(
             'Schedule Quiz',
             style: GoogleFonts.inter(
-              color: const Color(0xFF1F2937),
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -719,7 +719,7 @@ class _InstructorCourseDetailScreenState
           Text(
             'Create and schedule assessments for your students',
             style: GoogleFonts.inter(
-              color: const Color(0xFF6B7280),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
               fontSize: 12,
             ),
           ),
@@ -789,7 +789,7 @@ class _InstructorCourseDetailScreenState
                     Text(
                       'View Enrollment Requests',
                       style: GoogleFonts.inter(
-                        color: const Color(0xFF374151),
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -823,7 +823,7 @@ class _InstructorCourseDetailScreenState
                     Text(
                       'View Attendance History',
                       style: GoogleFonts.inter(
-                        color: const Color(0xFF374151),
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -857,7 +857,7 @@ class _InstructorCourseDetailScreenState
                     Text(
                       'Review Question Results',
                       style: GoogleFonts.inter(
-                        color: const Color(0xFF374151),
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -895,7 +895,7 @@ class _InstructorCourseDetailScreenState
           Text(
             'Questions & Quizzes History',
             style: GoogleFonts.inter(
-              color: const Color(0xFF1F2937),
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 16,
               fontWeight: FontWeight.w500,
             ),
@@ -904,7 +904,7 @@ class _InstructorCourseDetailScreenState
           Text(
             'View past questions and quizzes with student results',
             style: GoogleFonts.inter(
-              color: const Color(0xFF6B7280),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
               fontSize: 14,
             ),
           ),
@@ -923,7 +923,7 @@ class _InstructorCourseDetailScreenState
               Text(
                 'Popup Questions',
                 style: GoogleFonts.inter(
-                  color: const Color(0xFF1F2937),
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),
@@ -949,7 +949,7 @@ class _InstructorCourseDetailScreenState
               Text(
                 'Quizzes',
                 style: GoogleFonts.inter(
-                  color: const Color(0xFF1F2937),
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),
@@ -981,7 +981,7 @@ class _InstructorCourseDetailScreenState
                       Text(
                         'No history yet',
                         style: GoogleFonts.inter(
-                          color: const Color(0xFF6B7280),
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                         ),
@@ -991,7 +991,7 @@ class _InstructorCourseDetailScreenState
                         'Questions and quizzes will appear here once created',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
-                          color: const Color(0xFF9CA3AF),
+                          color: Theme.of(context).hintColor,
                           fontSize: 12,
                         ),
                       ),
@@ -1039,7 +1039,7 @@ class _InstructorCourseDetailScreenState
                           Text(
                             title,
                             style: GoogleFonts.inter(
-                              color: const Color(0xFF1F2937),
+                              color: Theme.of(context).colorScheme.onSurface,
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                             ),
@@ -1075,7 +1075,7 @@ class _InstructorCourseDetailScreenState
                           Text(
                             type,
                             style: GoogleFonts.inter(
-                              color: const Color(0xFF6B7280),
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                               fontSize: 12,
                             ),
                           ),
@@ -1083,7 +1083,7 @@ class _InstructorCourseDetailScreenState
                           Text(
                             '•',
                             style: GoogleFonts.inter(
-                              color: const Color(0xFF6B7280),
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                               fontSize: 12,
                             ),
                           ),
@@ -1091,7 +1091,7 @@ class _InstructorCourseDetailScreenState
                           Text(
                             date,
                             style: GoogleFonts.inter(
-                              color: const Color(0xFF6B7280),
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                               fontSize: 12,
                             ),
                           ),
@@ -1102,7 +1102,7 @@ class _InstructorCourseDetailScreenState
                 ),
                 Icon(
                   Icons.arrow_forward_ios,
-                  color: const Color(0xFF6B7280),
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                   size: 16,
                 ),
               ],
@@ -1172,7 +1172,7 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
         title: Text(
           'Quiz Results',
           style: GoogleFonts.inter(
-            color: const Color(0xFF111827),
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -1226,7 +1226,7 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
                     Text(
                       'Student Submissions',
                       style: GoogleFonts.inter(
-                        color: const Color(0xFF1F2937),
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                       ),
@@ -1252,7 +1252,7 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
                         child: Text(
                           'No submissions yet',
                           style: GoogleFonts.inter(
-                            color: const Color(0xFF6B7280),
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                             fontSize: 14,
                           ),
                         ),
@@ -1288,7 +1288,7 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
               Text(
                 studentName,
                 style: GoogleFonts.inter(
-                  color: const Color(0xFF1F2937),
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),
@@ -1296,7 +1296,7 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
               Text(
                 rollNumber,
                 style: GoogleFonts.inter(
-                  color: const Color(0xFF6B7280),
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                   fontSize: 12,
                 ),
               ),
@@ -1308,7 +1308,7 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
               Text(
                 '$score/$total',
                 style: GoogleFonts.inter(
-                  color: const Color(0xFF1F2937),
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1362,7 +1362,7 @@ class AttendanceRecordScreen extends StatelessWidget {
         title: Text(
           'Attendance Record - ${record['date']}',
           style: GoogleFonts.inter(
-            color: const Color(0xFF111827),
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -1430,7 +1430,7 @@ class AttendanceRecordScreen extends StatelessWidget {
                   Text(
                     'Students Present',
                     style: GoogleFonts.inter(
-                      color: const Color(0xFF1F2937),
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
@@ -1438,7 +1438,7 @@ class AttendanceRecordScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   ...List.generate(
                     record['students'].length,
-                    (index) => _buildStudentItem(record['students'][index]),
+                    (index) => _buildStudentItem(context, record['students'][index]),
                   ),
                 ],
               ),
@@ -1449,7 +1449,7 @@ class AttendanceRecordScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStudentItem(Map<String, dynamic> student) {
+  Widget _buildStudentItem(BuildContext context, Map<String, dynamic> student) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -1477,7 +1477,7 @@ class AttendanceRecordScreen extends StatelessWidget {
                 Text(
                   student['name'],
                   style: GoogleFonts.inter(
-                    color: const Color(0xFF1F2937),
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
@@ -1485,7 +1485,7 @@ class AttendanceRecordScreen extends StatelessWidget {
                 Text(
                   student['rollNumber'],
                   style: GoogleFonts.inter(
-                    color: const Color(0xFF6B7280),
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                     fontSize: 12,
                   ),
                 ),
@@ -1549,7 +1549,7 @@ class _EnrollmentRequestsScreenState extends State<EnrollmentRequestsScreen> {
         title: Text(
           'Enrollment Requests',
           style: GoogleFonts.inter(
-            color: const Color(0xFF111827),
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -1569,7 +1569,7 @@ class _EnrollmentRequestsScreenState extends State<EnrollmentRequestsScreen> {
                   Text(
                     'No pending requests',
                     style: GoogleFonts.inter(
-                      color: const Color(0xFF6B7280),
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                       fontSize: 16,
                     ),
                   ),
@@ -1676,7 +1676,7 @@ class _EnrollmentRequestsScreenState extends State<EnrollmentRequestsScreen> {
                     Text(
                       request['name']!,
                       style: GoogleFonts.inter(
-                        color: const Color(0xFF1F2937),
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
@@ -1684,7 +1684,7 @@ class _EnrollmentRequestsScreenState extends State<EnrollmentRequestsScreen> {
                     Text(
                       request['rollNumber']!,
                       style: GoogleFonts.inter(
-                        color: const Color(0xFF6B7280),
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                         fontSize: 12,
                       ),
                     ),

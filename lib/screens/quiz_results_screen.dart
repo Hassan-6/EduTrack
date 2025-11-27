@@ -429,7 +429,7 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                if (!isGraded)
+                if (!isGraded && _isInstructor)
                   Row(
                     children: [
                       Expanded(
@@ -467,7 +467,40 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
                       ),
                     ],
                   )
-                else
+                else if (!isGraded && !_isInstructor)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.orange.shade900.withOpacity(0.5)
+                          : Colors.orange.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.pending_outlined,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.orange.shade300
+                              : Colors.orange.shade700,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Pending Instructor Review',
+                          style: GoogleFonts.inter(
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? Colors.orange.shade300
+                                : Colors.orange.shade700,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (isGraded)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(

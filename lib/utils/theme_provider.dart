@@ -9,7 +9,14 @@ class ThemeProvider with ChangeNotifier {
   ThemeMode get themeMode => _themeMode;
   Color get primaryColor => _primaryColor;
   Color get secondaryColor => _secondaryColor;
-  bool get isDarkMode => _themeMode == ThemeMode.dark;
+  
+  // Proper way to check if dark mode is active (accounts for system theme)
+  bool isDarkMode(BuildContext context) {
+    if (_themeMode == ThemeMode.system) {
+      return MediaQuery.of(context).platformBrightness == Brightness.dark;
+    }
+    return _themeMode == ThemeMode.dark;
+  }
 
   void setThemeMode(ThemeMode mode) {
     _themeMode = mode;

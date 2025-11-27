@@ -771,7 +771,7 @@ class _InstructorMainMenuScreenState extends State<InstructorMainMenuScreen> {
                           border: Border.all(
                             color: task.isCompleted
                                 ? const Color(0xFF0075FF)
-                                : const Color(0xFFD1D5DB),
+                                : Theme.of(context).dividerColor,
                             width: 0.5,
                           ),
                           borderRadius: BorderRadius.circular(1),

@@ -258,7 +258,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Text(
               'EduTrack',
               style: GoogleFonts.inter(
-                color: const Color(0xFF1F2937),
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 32,
                 fontWeight: FontWeight.w600,
                 height: 0.9,

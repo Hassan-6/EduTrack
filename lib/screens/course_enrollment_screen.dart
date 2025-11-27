@@ -13,27 +13,27 @@ class CourseEnrollmentScreen extends StatefulWidget {
 }
 
 class _CourseEnrollmentScreenState extends State<CourseEnrollmentScreen> {
-  bool _otpVerified = false;
-  bool _showOtpInput = false;
+  bool _codeVerified = false;
+  bool _showCodeInput = false;
   
-  final TextEditingController _otpController = TextEditingController();
+  final TextEditingController _codeController = TextEditingController();
   
-  // Dummy course data that would be fetched after OTP verification
+  // Dummy course data that would be fetched after code verification
   Map<String, dynamic>? _courseData;
 
-  void _showOtpSection() {
+  void _showCodeSection() {
     setState(() {
-      _showOtpInput = true;
+      _showCodeInput = true;
     });
   }
 
-  void _verifyOtp() {
-    // Simulate OTP verification
-    if (_otpController.text.length == 6) {
+  void _verifyCode() {
+    // Simulate code verification
+    if (_codeController.text.length == 6) {
       setState(() {
-        _otpVerified = true;
-        _showOtpInput = false;
-        // Simulate fetching course data after successful OTP verification
+        _codeVerified = true;
+        _showCodeInput = false;
+        // Simulate fetching course data after successful code verification
         _courseData = {
           'courseName': 'Fundamentals of Organic Chemistry',
           'courseCode': 'CHEM 340',
@@ -47,10 +47,10 @@ class _CourseEnrollmentScreenState extends State<CourseEnrollmentScreen> {
         };
       });
     } else {
-      // Show error for invalid OTP
+      // Show error for invalid code
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter a valid 6-digit OTP'),
+          content: Text('Please enter a valid 6-digit code'),
           backgroundColor: Colors.red,
         ),
       );
@@ -162,7 +162,7 @@ class _CourseEnrollmentScreenState extends State<CourseEnrollmentScreen> {
 
   @override
   void dispose() {
-    _otpController.dispose();
+    _codeController.dispose();
     super.dispose();
   }
 
@@ -247,21 +247,21 @@ class _CourseEnrollmentScreenState extends State<CourseEnrollmentScreen> {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    // OTP Entry Section
-                    _buildOtpSection(themeProvider),
+                    // Code Entry Section
+                    _buildCodeSection(themeProvider),
                     
                     const SizedBox(height: 24),
                     
-                    // Course Details Section (shown after OTP verification)
-                    if (_otpVerified && _courseData != null)
+                    // Course Details Section (shown after code verification)
+                    if (_codeVerified && _courseData != null)
                       _buildCourseDetailsSection(),
                   ],
                 ),
               ),
             ),
 
-            // Send Enrollment Button (shown after OTP verification)
-            if (_otpVerified && _courseData != null)
+            // Send Enrollment Button (shown after code verification)
+            if (_codeVerified && _courseData != null)
               Container(
                 width: double.infinity,
                 margin: const EdgeInsets.all(24),
@@ -309,7 +309,7 @@ class _CourseEnrollmentScreenState extends State<CourseEnrollmentScreen> {
     );
   }
 
-  Widget _buildOtpSection(ThemeProvider themeProvider) {
+  Widget _buildCodeSection(ThemeProvider themeProvider) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -332,7 +332,7 @@ class _CourseEnrollmentScreenState extends State<CourseEnrollmentScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'OTP Verification',
+            'Code Verification',
             style: GoogleFonts.inter(
               color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
               fontSize: 16,
@@ -343,7 +343,7 @@ class _CourseEnrollmentScreenState extends State<CourseEnrollmentScreen> {
           const SizedBox(height: 8),
           
           Text(
-            'Enter the 6-digit OTP provided by your instructor to view course details and enroll.',
+            'Enter the 6-digit code provided by your instructor to view course details and enroll.',
             style: GoogleFonts.inter(
               color: Theme.of(context).colorScheme.onSurface, // THEME: Dynamic text
               fontSize: 14,
@@ -352,8 +352,8 @@ class _CourseEnrollmentScreenState extends State<CourseEnrollmentScreen> {
           
           const SizedBox(height: 20),
           
-          // Initial state - Show Enter OTP button
-          if (!_showOtpInput && !_otpVerified)
+          // Initial state - Show Enter Code button
+          if (!_showCodeInput && !_codeVerified)
             Container(
               width: double.infinity,
               height: 56,
@@ -373,10 +373,10 @@ class _CourseEnrollmentScreenState extends State<CourseEnrollmentScreen> {
                 color: Colors.transparent,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
-                  onTap: _showOtpSection,
+                  onTap: _showCodeSection,
                   child: Center(
                     child: Text(
-                      'Enter OTP',
+                      'Enter Code',
                       style: GoogleFonts.inter(
                         color: Colors.white,
                         fontSize: 16,
@@ -388,12 +388,12 @@ class _CourseEnrollmentScreenState extends State<CourseEnrollmentScreen> {
               ),
             ),
           
-          // OTP Input State
-          if (_showOtpInput && !_otpVerified)
+          // Code Input State
+          if (_showCodeInput && !_codeVerified)
             Column(
               children: [
                 Text(
-                  'Enter the 6-digit OTP:',
+                  'Enter the 6-digit code:',
                   style: GoogleFonts.inter(
                     color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
                     fontSize: 16,
@@ -402,7 +402,7 @@ class _CourseEnrollmentScreenState extends State<CourseEnrollmentScreen> {
                 ),
                 const SizedBox(height: 20),
                 
-                // Single OTP Input Field
+                // Single Code Input Field
                 Container(
                   width: 280,
                   height: 80,
@@ -414,7 +414,7 @@ class _CourseEnrollmentScreenState extends State<CourseEnrollmentScreen> {
                     ),
                   ),
                   child: TextField(
-                    controller: _otpController,
+                    controller: _codeController,
                     textAlign: TextAlign.center,
                     maxLength: 6,
                     keyboardType: TextInputType.number,
@@ -440,7 +440,7 @@ class _CourseEnrollmentScreenState extends State<CourseEnrollmentScreen> {
                 ),
                 const SizedBox(height: 24),
                 
-                // Submit OTP Button
+                // Submit Code Button
                 Container(
                   width: double.infinity,
                   height: 56,
@@ -460,10 +460,10 @@ class _CourseEnrollmentScreenState extends State<CourseEnrollmentScreen> {
                     color: Colors.transparent,
                     child: InkWell(
                       borderRadius: BorderRadius.circular(16),
-                      onTap: _verifyOtp,
+                      onTap: _verifyCode,
                       child: Center(
                         child: Text(
-                          'Submit OTP',
+                          'Submit Code',
                           style: GoogleFonts.inter(
                             color: Colors.white,
                             fontSize: 16,
@@ -477,8 +477,8 @@ class _CourseEnrollmentScreenState extends State<CourseEnrollmentScreen> {
               ],
             ),
           
-          // OTP Verified State - Centered content
-          if (_otpVerified)
+          // Code Verified State - Centered content
+          if (_codeVerified)
             Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               mainAxisAlignment: MainAxisAlignment.center, // Add this line
@@ -491,7 +491,7 @@ class _CourseEnrollmentScreenState extends State<CourseEnrollmentScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'OTP Verified Successfully!',
+                  'Code Verified Successfully!',
                   style: GoogleFonts.inter(
                     color: const Color(0xFF10B981),
                     fontSize: 16,

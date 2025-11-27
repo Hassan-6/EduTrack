@@ -7,6 +7,7 @@ import 'create_course_screen.dart';
 import '../services/auth_provider.dart';
 import '../services/firebase_service.dart';
 import 'instructor_course_detail_screen.dart';
+import '../utils/course_categories.dart';
 
 class InstructorCoursesScreen extends StatefulWidget {
   const InstructorCoursesScreen({super.key});
@@ -289,15 +290,9 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
   }
 
   Widget _buildFirebaseCourseCard(Map<String, dynamic> courseData) {
-    final colors = [
-      [const Color(0xFF4E9FEC), const Color(0xFF2563EB)],
-      [const Color(0xFF5CD6C0), const Color(0xFF16A34A)],
-      [const Color(0xFFC084FC), const Color(0xFF9333EA)],
-      [const Color(0xFF818CF8), const Color(0xFF4F46E5)],
-      [const Color(0xFFF472B6), const Color(0xFFEC4899)],
-    ];
-    final colorIndex = courseData['title'].toString().length % colors.length;
-    final gradient = colors[colorIndex];
+    // Get category or use default
+    final categoryId = courseData['category'] as String?;
+    final category = CourseCategories.tryGetById(categoryId) ?? CourseCategories.computerScience;
 
     return GestureDetector(
       onTap: () async {
@@ -338,14 +333,14 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
                 height: 48,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: gradient,
+                    colors: category.gradient,
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
-                  Icons.book,
+                child: Icon(
+                  category.icon,
                   color: Colors.white,
                   size: 24,
                 ),
@@ -365,7 +360,7 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'OTP: ${courseData['otp'] ?? 'N/A'}',
+                      'Code: ${courseData['otp'] ?? 'N/A'}',
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),

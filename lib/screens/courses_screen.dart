@@ -8,6 +8,7 @@ import 'create_course_screen.dart';
 import '../utils/theme_provider.dart';
 import '../services/auth_provider.dart';
 import '../services/firebase_service.dart';
+import '../utils/course_categories.dart';
 
 class CoursesScreen extends StatefulWidget {
   const CoursesScreen({super.key});
@@ -41,31 +42,54 @@ class _CoursesScreenState extends State<CoursesScreen> {
       final coursesData = await FirebaseService.getStudentEnrolledCourses(currentUser.uid);
       print('Loaded ${coursesData.length} courses from Firebase');
       
-      setState(() {
-        _courses = coursesData.map((courseData) {
-          // Use different colors for different courses
-          final colors = [
-            {'color': const Color(0xFF4E9FEC), 'gradient': [const Color(0xFF4E9FEC), const Color(0xFF2563EB)], 'icon': Icons.code},
-            {'color': const Color(0xFF5CD6C0), 'gradient': [const Color(0xFF5CD6C0), const Color(0xFF16A34A)], 'icon': Icons.calculate},
-            {'color': const Color(0xFFC084FC), 'gradient': [const Color(0xFFC084FC), const Color(0xFF9333EA)], 'icon': Icons.science},
-            {'color': const Color(0xFF818CF8), 'gradient': [const Color(0xFF818CF8), const Color(0xFF4F46E5)], 'icon': Icons.menu_book},
-          ];
-          final colorIndex = _courses.length % colors.length;
-          final colorConfig = colors[colorIndex];
+      // Load courses with activity status
+      final courses = <Course>[];
+      for (var courseData in coursesData) {
+        // Get category or use default
+        final categoryId = courseData['category'] as String?;
+        final category = CourseCategories.tryGetById(categoryId) ?? CourseCategories.computerScience;
 
-          return Course(
-            id: courseData['id'] ?? '',
-            name: courseData['title'] ?? 'Unnamed Course',
-            instructor: courseData['instructorName'] ?? 'Unknown Instructor',
-            color: colorConfig['color'] as Color,
-            gradient: colorConfig['gradient'] as List<Color>,
-            icon: colorConfig['icon'] as IconData,
-            recentActivity: 'No recent activity',
-            timeAgo: '',
-            assignmentsDue: 0,
-            unreadMessages: 0,
-          );
-        }).toList();
+        // Check for active popup questions and quizzes
+        String activityStatus = 'No recent activity';
+        try {
+          final courseId = courseData['id'] ?? '';
+          
+          // Check for active popup questions
+          final popupQuestions = await FirebaseService.getCoursePopupQuestions(courseId);
+          final hasActivePopup = popupQuestions.any((q) => q['isActive'] == true);
+          
+          // Check for active quizzes
+          final quizzes = await FirebaseService.getCourseQuizzes(courseId);
+          final hasActiveQuiz = quizzes.any((q) => q['isActive'] == true);
+          
+          // Set activity status based on what's active
+          if (hasActivePopup && hasActiveQuiz) {
+            activityStatus = '🔴 Quiz and Pop-up Question Active';
+          } else if (hasActiveQuiz) {
+            activityStatus = '🔴 Quiz Active';
+          } else if (hasActivePopup) {
+            activityStatus = '🔴 Pop-up Question Active';
+          }
+        } catch (e) {
+          print('Error checking activity for course ${courseData['id']}: $e');
+        }
+
+        courses.add(Course(
+          id: courseData['id'] ?? '',
+          name: courseData['title'] ?? 'Unnamed Course',
+          instructor: courseData['instructorName'] ?? 'Unknown Instructor',
+          color: category.primaryColor,
+          gradient: category.gradient,
+          icon: category.icon,
+          recentActivity: activityStatus,
+          timeAgo: '',
+          assignmentsDue: 0,
+          unreadMessages: 0,
+        ));
+      }
+      
+      setState(() {
+        _courses = courses;
         _isLoading = false;
       });
     } catch (e) {

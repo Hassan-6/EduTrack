@@ -27,7 +27,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _semesterController = TextEditingController();
-  final TextEditingController _cgpaController = TextEditingController();
+  final TextEditingController _departmentController = TextEditingController(); // For instructors
 
   @override
   void initState() {
@@ -76,6 +76,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             email: profileData?['email'] ?? currentUser.email ?? '',
             semester: profileData?['semester'] ?? 'Not specified',
             cgpa: profileData?['cgpa'] ?? 'N/A',
+            profileIconIndex: profileData?['profileIconIndex'] ?? 0,
           );
           _isLoading = false;
           _initializeControllers();
@@ -97,7 +98,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _phoneController.text = _userProfile.phoneNumber;
     _emailController.text = _userProfile.email;
     _semesterController.text = _userProfile.semester;
-    _cgpaController.text = _userProfile.cgpa;
+    _departmentController.text = _userProfile.major; // Department stored in major field
+  }
+
+  String _getSemesterValue(String currentValue) {
+    // List of valid semester values
+    const validSemesters = [
+      '1st Semester',
+      '2nd Semester',
+      '3rd Semester',
+      '4th Semester',
+      '5th Semester',
+      '6th Semester',
+      '7th Semester',
+      '8th Semester',
+    ];
+    
+    // If current value is in the list, return it
+    if (validSemesters.contains(currentValue)) {
+      return currentValue;
+    }
+    
+    // Default to 1st Semester if value is invalid or not set
+    return '1st Semester';
   }
 
   void _toggleEdit() {
@@ -117,22 +140,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (currentUser == null) return;
 
       // Update Firestore with new profile data
-      await FirebaseService.updateUserProfile(currentUser.uid, {
+      final isStudent = authProvider.userType == 'student';
+      
+      final updates = {
         'name': _nameController.text,
-        'rollNumber': _rollNumberController.text,
         'phoneNumber': _phoneController.text,
         'email': _emailController.text,
-        'semester': _semesterController.text,
-        'cgpa': _cgpaController.text,
-      });
+      };
+      
+      if (isStudent) {
+        updates['rollNumber'] = _rollNumberController.text;
+        updates['semester'] = _semesterController.text;
+      } else {
+        updates['major'] = _departmentController.text; // Department stored in major
+      }
+      
+      await FirebaseService.updateUserProfile(currentUser.uid, updates);
 
       setState(() {
         _userProfile.name = _nameController.text;
-        _userProfile.rollNumber = _rollNumberController.text;
         _userProfile.phoneNumber = _phoneController.text;
         _userProfile.email = _emailController.text;
-        _userProfile.semester = _semesterController.text;
-        _userProfile.cgpa = _cgpaController.text;
+        
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        if (authProvider.userType == 'student') {
+          _userProfile.rollNumber = _rollNumberController.text;
+          _userProfile.semester = _semesterController.text;
+        } else {
+          _userProfile.major = _departmentController.text;
+        }
       });
 
       if (!mounted) return;
@@ -155,20 +191,117 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  void _changeProfilePicture() {
-    showDialog(
+  Future<void> _changeProfilePicture() async {
+    final selectedIndex = await showDialog<int>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Change Profile Picture'),
-        content: const Text('Profile picture change functionality would go here.'),
+        title: Text(
+          'Choose Profile Icon',
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: GridView.builder(
+            shrinkWrap: true,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
+            itemCount: ProfileIcons.icons.length,
+            itemBuilder: (context, index) {
+              final isSelected = _userProfile.profileIconIndex == index;
+              return InkWell(
+                onTap: () => Navigator.pop(context, index),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? Theme.of(context).primaryColor.withOpacity(0.2)
+                        : Theme.of(context).colorScheme.surface,
+                    border: Border.all(
+                      color: isSelected
+                          ? Theme.of(context).primaryColor
+                          : Theme.of(context).dividerColor,
+                      width: isSelected ? 2 : 1,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        ProfileIcons.icons[index],
+                        size: 32,
+                        color: isSelected
+                            ? Theme.of(context).primaryColor
+                            : Theme.of(context).colorScheme.onSurface,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        ProfileIcons.iconNames[index],
+                        style: GoogleFonts.inter(
+                          fontSize: 9,
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            child: const Text('Cancel'),
           ),
         ],
       ),
     );
+
+    if (selectedIndex != null && selectedIndex != _userProfile.profileIconIndex) {
+      try {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final currentUser = authProvider.currentUser;
+        
+        if (currentUser == null) return;
+
+        // Update Firestore
+        await FirebaseService.updateUserProfile(currentUser.uid, {
+          'profileIconIndex': selectedIndex,
+        });
+
+        // Update local state
+        setState(() {
+          _userProfile.profileIconIndex = selectedIndex;
+        });
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile icon updated successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating profile icon: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _logout() {
@@ -289,8 +422,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             _buildProfileHeader(themeProvider),
             const SizedBox(height: 24),
-            _buildAcademicSummary(),
-            const SizedBox(height: 24),
             _buildPersonalDetails(),
             const SizedBox(height: 24),
             _buildActionButtons(themeProvider),
@@ -330,13 +461,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF8FBFE6), // Keep this as brand color
+                  color: themeProvider.primaryColor.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(60),
+                  border: Border.all(
+                    color: themeProvider.primaryColor.withOpacity(0.3),
+                    width: 2,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.person,
+                child: Icon(
+                  ProfileIcons.getIcon(_userProfile.profileIconIndex),
                   size: 60,
-                  color: Colors.white,
+                  color: themeProvider.primaryColor,
                 ),
               ),
               Positioned(
@@ -359,7 +494,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ],
                     ),
                     child: const Icon(
-                      Icons.camera_alt,
+                      Icons.edit,
                       size: 18,
                       color: Colors.white,
                     ),
@@ -369,79 +504,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          Text(
-            _userProfile.name,
-            style: GoogleFonts.poppins(
-              color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text color
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+              Text(
+                _userProfile.name,
+                style: GoogleFonts.poppins(
+                  color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text color
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 6),
+              // Role descriptor and Roll Number/Department on separate lines
+              Builder(builder: (ctx) {
+                final authProvider = Provider.of<AuthProvider>(ctx, listen: false);
+                final userType = authProvider.userType ?? '';
+                
+                return Column(
+                  children: [
+                    // First line: Roll Number or Department
+                    Text(
+                      userType == 'instructor'
+                          ? (_userProfile.major.isNotEmpty ? _userProfile.major : '')
+                          : (_userProfile.rollNumber.isNotEmpty ? _userProfile.rollNumber : ''),
+                      style: GoogleFonts.inter(
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    // Second line: Student or Instructor
+                    Text(
+                      userType == 'instructor' ? 'Instructor' : 'Student',
+                      style: GoogleFonts.inter(
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                );
+              }),
         ],
       ),
     );
   }
 
-  Widget _buildAcademicSummary() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor, // THEME: Dynamic card color
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).brightness == Brightness.dark 
-                ? Colors.black.withOpacity(0.3) 
-                : Colors.black.withOpacity(0.05), // THEME: Adaptive shadow
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Academic Summary',
-            style: GoogleFonts.poppins(
-              color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text color
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildEditableField(
-                  label: 'Semester',
-                  value: _userProfile.semester,
-                  controller: _semesterController,
-                  isEditing: _isEditing,
-                  icon: Icons.school_outlined,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildEditableField(
-                  label: 'CGPA',
-                  value: _userProfile.cgpa,
-                  controller: _cgpaController,
-                  isEditing: _isEditing,
-                  icon: Icons.grade_outlined,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+  // Academic summary removed — semester is now part of Personal Details
 
 
   Widget _buildPersonalDetails() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final isStudent = authProvider.userType == 'student';
+    
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -472,6 +585,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 16),
 
+          // Name (both)
           _buildEditableField(
             label: 'Full Name',
             value: _userProfile.name,
@@ -481,15 +595,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 16),
 
-          _buildEditableField(
-            label: 'Roll Number',
-            value: _userProfile.rollNumber,
-            controller: _rollNumberController,
-            isEditing: _isEditing,
-            icon: Icons.badge_outlined,
-          ),
-          const SizedBox(height: 16),
+          // Student: Roll Number
+          if (isStudent) ...[
+            _buildEditableField(
+              label: 'Roll Number',
+              value: _userProfile.rollNumber,
+              controller: _rollNumberController,
+              isEditing: _isEditing,
+              icon: Icons.badge_outlined,
+            ),
+            const SizedBox(height: 16),
+          ],
 
+          // Student: Semester
+          if (isStudent) ...[
+            _buildEditableField(
+              label: 'Semester',
+              value: _userProfile.semester,
+              controller: _semesterController,
+              isEditing: _isEditing,
+              icon: Icons.school_outlined,
+              isSemester: true,
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Instructor: Department
+          if (!isStudent) ...[
+            _buildEditableField(
+              label: 'Department',
+              value: _userProfile.major,
+              controller: _departmentController,
+              isEditing: _isEditing,
+              icon: Icons.account_balance_outlined,
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Phone Number (both)
           _buildEditableField(
             label: 'Phone Number',
             value: _userProfile.phoneNumber,
@@ -499,6 +642,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 16),
 
+          // Email (both)
           _buildEditableField(
             label: 'Email',
             value: _userProfile.email,
@@ -517,6 +661,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required TextEditingController controller,
     required bool isEditing,
     required IconData icon,
+    bool isSemester = false,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -525,6 +670,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ? Colors.black.withOpacity(0.2) 
             : const Color(0xFFF9FAFB), // THEME: Adaptive background
         borderRadius: BorderRadius.circular(12),
+        border: isEditing ? Border.all(
+          color: Theme.of(context).primaryColor.withOpacity(0.3),
+          width: 1,
+        ) : null,
       ),
       child: Row(
         children: [
@@ -547,18 +696,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                if (isEditing)
+                if (isEditing && isSemester)
+                  // Dropdown for semester
+                  DropdownButton<String>(
+                    value: _getSemesterValue(controller.text),
+                    isExpanded: true,
+                    underline: const SizedBox(),
+                    style: GoogleFonts.poppins(
+                      color: Theme.of(context).colorScheme.onBackground,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    items: [
+                      '1st Semester',
+                      '2nd Semester',
+                      '3rd Semester',
+                      '4th Semester',
+                      '5th Semester',
+                      '6th Semester',
+                      '7th Semester',
+                      '8th Semester',
+                    ].map((String semester) {
+                      return DropdownMenuItem<String>(
+                        value: semester,
+                        child: Text(semester),
+                      );
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      if (newValue != null) {
+                        setState(() {
+                          controller.text = newValue;
+                        });
+                      }
+                    },
+                  )
+                else if (isEditing)
+                  // Editable text field
                   TextField(
                     controller: controller,
+                    enabled: true,
                     style: GoogleFonts.poppins(
                       color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text color
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       isDense: true,
                       contentPadding: EdgeInsets.zero,
                       border: InputBorder.none,
+                      hintText: 'Enter $label',
+                      hintStyle: GoogleFonts.poppins(
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   )
                 else
@@ -575,7 +766,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
           ),
-          if (isEditing)
+          if (isEditing && !isSemester)
             Icon(
               Icons.edit_outlined,
               size: 16,
@@ -698,6 +889,7 @@ class UserProfile {
   String email;
   String semester;
   String cgpa;
+  int profileIconIndex; // Index of selected profile icon (0-11)
 
   UserProfile({
     required this.name,
@@ -709,7 +901,55 @@ class UserProfile {
     required this.email,
     required this.semester,
     required this.cgpa,
+    this.profileIconIndex = 0, // Default to first icon
   });
+}
+
+// List of available profile icons
+class ProfileIcons {
+  static const List<IconData> icons = [
+    Icons.person,
+    Icons.account_circle,
+    Icons.face,
+    Icons.sentiment_satisfied_alt,
+    Icons.mood,
+    Icons.emoji_emotions,
+    Icons.school,
+    Icons.workspace_premium,
+    Icons.stars,
+    Icons.rocket_launch,
+    Icons.lightbulb,
+    Icons.auto_awesome,
+  ];
+
+  static const List<String> iconNames = [
+    'Default',
+    'Circle',
+    'Face',
+    'Happy',
+    'Smile',
+    'Emoji',
+    'Graduate',
+    'Premium',
+    'Star',
+    'Rocket',
+    'Idea',
+    'Sparkle',
+  ];
+
+  static IconData getIcon(int index) {
+    if (index >= 0 && index < icons.length) {
+      return icons[index];
+    }
+    return icons[0]; // Default
+  }
+
+  static String getIconName(int index) {
+    if (index >= 0 && index < iconNames.length) {
+      return iconNames[index];
+    }
+    return iconNames[0];
+  }
 }
 
 class AcademicRecordsScreen extends StatelessWidget {

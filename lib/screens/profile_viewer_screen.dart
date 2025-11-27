@@ -37,15 +37,10 @@ class ProfileViewerScreen extends StatelessWidget {
         child: Column(
           children: [
             // Profile Header
-            _buildProfileHeader(context),
-            const SizedBox(height: 24),
-
-            // Academic Summary
-            _buildAcademicSummary(context),
-            const SizedBox(height: 24),
-
-            // Personal Details
-            _buildPersonalDetails(context),
+              _buildProfileHeader(context),
+              const SizedBox(height: 24),
+              // Personal Details (semester shown for students)
+              _buildPersonalDetails(context),
           ],
         ),
       ),
@@ -53,6 +48,8 @@ class ProfileViewerScreen extends StatelessWidget {
   }
 
   Widget _buildProfileHeader(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -77,13 +74,17 @@ class ProfileViewerScreen extends StatelessWidget {
             width: 120,
             height: 120,
             decoration: BoxDecoration(
-              color: const Color(0xFF8FBFE6),
+              color: themeProvider.primaryColor.withOpacity(0.15),
               borderRadius: BorderRadius.circular(60),
+              border: Border.all(
+                color: themeProvider.primaryColor.withOpacity(0.3),
+                width: 2,
+              ),
             ),
-            child: const Icon(
-              Icons.person,
+            child: Icon(
+              ProfileIcons.getIcon(userProfile.profileIconIndex),
               size: 60,
-              color: Colors.white,
+              color: themeProvider.primaryColor,
             ),
           ),
           const SizedBox(height: 16),
@@ -97,65 +98,29 @@ class ProfileViewerScreen extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            userProfile.username,
-            style: GoogleFonts.poppins(
-              color: Theme.of(context).colorScheme.onSurface, // THEME: Dynamic text
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            userProfile.major,
-            style: GoogleFonts.poppins(
-              color: Theme.of(context).colorScheme.onSurface, // THEME: Dynamic text
-              fontSize: 14,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAcademicSummary(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor, // THEME: Dynamic card
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).brightness == Brightness.dark 
-                ? Colors.black.withOpacity(0.3) 
-                : Colors.black.withOpacity(0.05), // THEME: Adaptive shadow
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Academic Summary',
-            style: GoogleFonts.poppins(
-              color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
+          const SizedBox(height: 6),
+          // Role + descriptor: Roll Number for students, Department for instructors on separate lines
+          Column(
             children: [
-              Expanded(
-                child: _buildAcademicItem(context, 'Semester', userProfile.semester),
+              // First line: Roll Number or Department
+              Text(
+                userProfile.rollNumber.isNotEmpty
+                    ? userProfile.rollNumber
+                    : (userProfile.major.isNotEmpty ? userProfile.major : ''),
+                style: GoogleFonts.poppins(
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-              Expanded(
-                child: _buildAcademicItem(context, 'CGPA', userProfile.cgpa),
+              const SizedBox(height: 4),
+              // Second line: Student or Instructor
+              Text(
+                userProfile.rollNumber.isNotEmpty ? 'Student' : 'Instructor',
+                style: GoogleFonts.poppins(
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  fontSize: 13,
+                ),
               ),
             ],
           ),
@@ -164,32 +129,15 @@ class ProfileViewerScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAcademicItem(BuildContext context, String title, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: GoogleFonts.poppins(
-            color: Theme.of(context).colorScheme.onSurface, // THEME: Dynamic text
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: GoogleFonts.poppins(
-            color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    );
-  }
+  // Academic summary removed for viewer; semester is shown in Personal Details for students
+
+  // Academic item helper removed — not used after layout changes
+
 
   Widget _buildPersonalDetails(BuildContext context) {
+    // Determine user type based on presence of rollNumber
+    final isStudent = userProfile.rollNumber.isNotEmpty;
+    
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -220,7 +168,7 @@ class ProfileViewerScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // Full Name
+          // Name (both)
           _buildDetailField(
             context,
             label: 'Full Name',
@@ -229,25 +177,40 @@ class ProfileViewerScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // Age
-          _buildDetailField(
-            context,
-            label: 'Age',
-            value: userProfile.age,
-            icon: Icons.cake_outlined,
-          ),
-          const SizedBox(height: 16),
+          // Student: Roll Number
+          if (isStudent) ...[
+            _buildDetailField(
+              context,
+              label: 'Roll Number',
+              value: userProfile.rollNumber,
+              icon: Icons.badge_outlined,
+            ),
+            const SizedBox(height: 16),
+          ],
 
-          // Roll Number
-          _buildDetailField(
-            context,
-            label: 'Roll Number',
-            value: userProfile.rollNumber,
-            icon: Icons.badge_outlined,
-          ),
-          const SizedBox(height: 16),
+          // Student: Semester
+          if (isStudent) ...[
+            _buildDetailField(
+              context,
+              label: 'Semester',
+              value: userProfile.semester,
+              icon: Icons.school_outlined,
+            ),
+            const SizedBox(height: 16),
+          ],
 
-          // Phone Number
+          // Instructor: Department
+          if (!isStudent) ...[
+            _buildDetailField(
+              context,
+              label: 'Department',
+              value: userProfile.major,
+              icon: Icons.account_balance_outlined,
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Phone Number (both)
           _buildDetailField(
             context,
             label: 'Phone Number',
@@ -256,7 +219,7 @@ class ProfileViewerScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // Email
+          // Email (both)
           _buildDetailField(
             context,
             label: 'Email',

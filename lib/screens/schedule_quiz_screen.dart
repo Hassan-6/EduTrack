@@ -283,7 +283,7 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
                       ),
                     ),
                     style: GoogleFonts.inter(
-                      color: const Color(0xFF1F2937),
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 14,
                     ),
                   ),
@@ -337,7 +337,7 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.calendar_today, color: Color(0xFF6B7280)),
+                          Icon(Icons.calendar_today, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
                           const SizedBox(width: 12),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -346,14 +346,14 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
                               Text(
                                 'Date',
                                 style: GoogleFonts.inter(
-                                  color: const Color(0xFF6B7280),
+                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                                   fontSize: 12,
                                 ),
                               ),
                               Text(
                                 '${_selectedDate.month}/${_selectedDate.day}/${_selectedDate.year}',
                                 style: GoogleFonts.inter(
-                                  color: const Color(0xFF1F2937),
+                                  color: Theme.of(context).colorScheme.onSurface,
                                   fontSize: 14,
                                 ),
                               ),
@@ -378,7 +378,7 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.access_time, color: Color(0xFF6B7280)),
+                          Icon(Icons.access_time, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
                           const SizedBox(width: 12),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -387,14 +387,14 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
                               Text(
                                 'Time',
                                 style: GoogleFonts.inter(
-                                  color: const Color(0xFF6B7280),
+                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                                   fontSize: 12,
                                 ),
                               ),
                               Text(
                                 '${_selectedTime.hour}:${_selectedTime.minute.toString().padLeft(2, '0')}',
                                 style: GoogleFonts.inter(
-                                  color: const Color(0xFF1F2937),
+                                  color: Theme.of(context).colorScheme.onSurface,
                                   fontSize: 14,
                                 ),
                               ),
@@ -410,7 +410,7 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
                   Text(
                     'Duration:',
                     style: GoogleFonts.inter(
-                      color: const Color(0xFF1F2937),
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
@@ -460,7 +460,7 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
                       Text(
                         'Questions (${_questions.length})',
                         style: GoogleFonts.inter(
-                          color: const Color(0xFF1F2937),
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
                         ),
@@ -515,7 +515,7 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
                           Text(
                             'No questions added yet',
                             style: GoogleFonts.inter(
-                              color: const Color(0xFF6B7280),
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                               fontSize: 14,
                             ),
                           ),
@@ -597,7 +597,7 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
                 contentPadding: EdgeInsets.symmetric(horizontal: 12),
               ),
               style: GoogleFonts.inter(
-                color: const Color(0xFF1F2937),
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 14,
               ),
             ),
@@ -606,7 +606,7 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
           Text(
             label,
             style: GoogleFonts.inter(
-              color: const Color(0xFF6B7280),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
               fontSize: 12,
             ),
           ),
@@ -632,7 +632,7 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
               Text(
                 'Question ${index + 1}',
                 style: GoogleFonts.inter(
-                  color: const Color(0xFF1F2937),
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),
@@ -648,7 +648,7 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
           Text(
             'Question Type:',
             style: GoogleFonts.inter(
-              color: const Color(0xFF1F2937),
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -696,7 +696,7 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
             Text(
               'Options:',
               style: GoogleFonts.inter(
-                color: const Color(0xFF1F2937),
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -736,7 +736,7 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
             Text(
               'Expected Answer (optional):',
               style: GoogleFonts.inter(
-                color: const Color(0xFF1F2937),
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -773,7 +773,7 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
             border: Border.all(
               color: isSelected
                   ? const Color(0xFF4E9FEC)
-                  : const Color(0xFFD1D5DB),
+                  : Theme.of(context).dividerColor,
             ),
             borderRadius: BorderRadius.circular(8),
           ),
@@ -783,7 +783,7 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
               style: GoogleFonts.inter(
                 color: isSelected
                     ? Colors.white
-                    : const Color(0xFF374151),
+                    : Theme.of(context).colorScheme.onSurface,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),

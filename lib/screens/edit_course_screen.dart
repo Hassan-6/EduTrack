@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/firebase_service.dart';
+import '../utils/course_categories.dart';
 
 class EditCourseScreen extends StatefulWidget {
   final Map<String, dynamic> courseData;
@@ -17,7 +18,8 @@ class _EditCourseScreenState extends State<EditCourseScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
-  late String _otp;
+  late String _code;
+  late String _selectedCategoryId;
   bool _isLoading = false;
 
   @override
@@ -25,7 +27,8 @@ class _EditCourseScreenState extends State<EditCourseScreen> {
     super.initState();
     _titleController = TextEditingController(text: widget.courseData['title']);
     _descriptionController = TextEditingController(text: widget.courseData['description']);
-    _otp = widget.courseData['otp'] ?? _generateOTP();
+    _code = widget.courseData['otp'] ?? _generateCode();
+    _selectedCategoryId = widget.courseData['category'] ?? CourseCategories.computerScience.id;
   }
 
   @override
@@ -35,22 +38,22 @@ class _EditCourseScreenState extends State<EditCourseScreen> {
     super.dispose();
   }
 
-  String _generateOTP() {
+  String _generateCode() {
     final random = Random();
     return (100000 + random.nextInt(900000)).toString();
   }
 
-  void _regenerateOTP() {
+  void _regenerateCode() {
     setState(() {
-      _otp = _generateOTP();
+      _code = _generateCode();
     });
   }
 
-  void _copyOTP() {
-    Clipboard.setData(ClipboardData(text: _otp));
+  void _copyCode() {
+    Clipboard.setData(ClipboardData(text: _code));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('OTP copied to clipboard!'),
+        content: Text('Code copied to clipboard!'),
         backgroundColor: Colors.green,
         duration: Duration(seconds: 2),
       ),
@@ -70,7 +73,8 @@ class _EditCourseScreenState extends State<EditCourseScreen> {
       final updatedData = {
         'title': _titleController.text.trim(),
         'description': _descriptionController.text.trim(),
-        'otp': _otp,
+        'otp': _code,
+        'category': _selectedCategoryId,
       };
 
       await FirebaseService.updateCourse(widget.courseData['id'], updatedData);
@@ -105,18 +109,18 @@ class _EditCourseScreenState extends State<EditCourseScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
+      backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).cardColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1F2937)),
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           'Edit Course',
           style: GoogleFonts.inter(
-            color: const Color(0xFF1F2937),
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -135,7 +139,7 @@ class _EditCourseScreenState extends State<EditCourseScreen> {
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: const Color(0xFF374151),
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 8),
@@ -144,17 +148,17 @@ class _EditCourseScreenState extends State<EditCourseScreen> {
                 decoration: InputDecoration(
                   hintText: 'Enter course title',
                   hintStyle: GoogleFonts.inter(
-                    color: const Color(0xFF9CA3AF),
+                    color: Theme.of(context).hintColor,
                   ),
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: Theme.of(context).cardColor,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: const Color(0xFFE5E7EB)),
+                    borderSide: BorderSide(color: Theme.of(context).dividerColor),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: const Color(0xFFE5E7EB)),
+                    borderSide: BorderSide(color: Theme.of(context).dividerColor),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -162,7 +166,7 @@ class _EditCourseScreenState extends State<EditCourseScreen> {
                   ),
                 ),
                 style: GoogleFonts.inter(
-                  color: const Color(0xFF1F2937),
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -182,7 +186,7 @@ class _EditCourseScreenState extends State<EditCourseScreen> {
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: const Color(0xFF374151),
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 8),
@@ -192,17 +196,17 @@ class _EditCourseScreenState extends State<EditCourseScreen> {
                 decoration: InputDecoration(
                   hintText: 'Enter course description',
                   hintStyle: GoogleFonts.inter(
-                    color: const Color(0xFF9CA3AF),
+                    color: Theme.of(context).hintColor,
                   ),
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: Theme.of(context).cardColor,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: const Color(0xFFE5E7EB)),
+                    borderSide: BorderSide(color: Theme.of(context).dividerColor),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: const Color(0xFFE5E7EB)),
+                    borderSide: BorderSide(color: Theme.of(context).dividerColor),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -210,7 +214,7 @@ class _EditCourseScreenState extends State<EditCourseScreen> {
                   ),
                 ),
                 style: GoogleFonts.inter(
-                  color: const Color(0xFF1F2937),
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -224,30 +228,103 @@ class _EditCourseScreenState extends State<EditCourseScreen> {
               ),
               const SizedBox(height: 20),
 
-              // OTP Section
+              // Category Field
               Text(
-                'Course OTP',
+                'Course Category',
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: const Color(0xFF374151),
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: CourseCategories.all.map((category) {
+                  final isSelected = _selectedCategoryId == category.id;
+                  return InkWell(
+                    onTap: () {
+                      setState(() {
+                        _selectedCategoryId = category.id;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? category.primaryColor.withOpacity(0.15)
+                            : Theme.of(context).cardColor,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? category.primaryColor
+                              : Theme.of(context).dividerColor,
+                          width: isSelected ? 2 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            category.icon,
+                            color: isSelected
+                                ? category.primaryColor
+                                : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            category.name,
+                            style: GoogleFonts.inter(
+                              color: isSelected
+                                  ? category.primaryColor
+                                  : Theme.of(context).colorScheme.onSurface,
+                              fontSize: 14,
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                CourseCategories.getById(_selectedCategoryId).description,
+                style: GoogleFonts.inter(
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Code Section
+              Text(
+                'Course Code',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  border: Border.all(color: Theme.of(context).dividerColor),
                 ),
                 child: Column(
                   children: [
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: _otp.split('').map((digit) {
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: _code.split('').map((digit) {
                           return Container(
                             margin: const EdgeInsets.symmetric(horizontal: 3),
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
@@ -273,16 +350,16 @@ class _EditCourseScreenState extends State<EditCourseScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         TextButton.icon(
-                          onPressed: _copyOTP,
+                          onPressed: _copyCode,
                           icon: const Icon(Icons.copy, size: 16),
-                          label: Text('Copy OTP'),
+                          label: Text('Copy Code'),
                           style: TextButton.styleFrom(
                             foregroundColor: const Color(0xFF2563EB),
                           ),
                         ),
                         const SizedBox(width: 8),
                         TextButton.icon(
-                          onPressed: _regenerateOTP,
+                          onPressed: _regenerateCode,
                           icon: const Icon(Icons.refresh, size: 16),
                           label: Text('Regenerate'),
                           style: TextButton.styleFrom(

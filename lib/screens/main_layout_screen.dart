@@ -106,14 +106,14 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
           child: Icon(
             icon,
             size: 20,
-            color: isActive ? Colors.white : const Color(0xFF9CA3AF),
+            color: isActive ? Colors.white : Theme.of(context).hintColor,
           ),
         ),
         const SizedBox(height: 4),
         Text(
           label,
           style: GoogleFonts.inter(
-            color: isActive ? const Color(0xFF4F94CD) : const Color(0xFF9CA3AF),
+            color: isActive ? const Color(0xFF4F94CD) : Theme.of(context).hintColor,
             fontSize: 12,
             fontWeight: isActive ? FontWeight.w500 : FontWeight.normal,
           ),

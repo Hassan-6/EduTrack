@@ -504,7 +504,7 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
           Text(
             'Attendance Information',
             style: GoogleFonts.inter(
-              color: const Color(0xFF1F2937),
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 16,
               fontWeight: FontWeight.w500,
             ),
@@ -522,7 +522,7 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
                     Text(
                       'Course',
                       style: GoogleFonts.inter(
-                        color: const Color(0xFF4B5563),
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
@@ -533,7 +533,7 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
                       height: 50,
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                        border: Border.all(color: Theme.of(context).dividerColor),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: _isLoadingCourses
@@ -550,7 +550,7 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
                                     child: Text(
                                       'No courses found',
                                       style: GoogleFonts.inter(
-                                        color: const Color(0xFF6B7280),
+                                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                                         fontSize: 14,
                                       ),
                                     ),
@@ -600,7 +600,7 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
                     Text(
                       'Date',
                       style: GoogleFonts.inter(
-                        color: const Color(0xFF4B5563),
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
@@ -614,7 +614,7 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
                           color: const Color(0x7F9CA3AF),
-                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                          border: Border.all(color: Theme.of(context).dividerColor),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
@@ -623,17 +623,17 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
                               child: Text(
                                 '${_selectedDate.month}/${_selectedDate.day}/${_selectedDate.year}',
                                 style: GoogleFonts.inter(
-                                  color: const Color(0xFF1F2937),
+                                  color: Theme.of(context).colorScheme.onSurface,
                                   fontSize: 14,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             const SizedBox(width: 4),
-                            const Icon(
+                            Icon(
                               Icons.calendar_today,
                               size: 18,
-                              color: Color(0xFF6B7280),
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                             ),
                           ],
                         ),
@@ -655,7 +655,7 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
               Text(
                 'Total Students',
                 style: GoogleFonts.inter(
-                  color: const Color(0xFF4B5563),
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),
@@ -666,7 +666,7 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 15),
                 decoration: BoxDecoration(
                   color: const Color(0x7F9CA3AF),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  border: Border.all(color: Theme.of(context).dividerColor),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -674,7 +674,7 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
                     Text(
                       _totalStudents.toString(),
                       style: GoogleFonts.inter(
-                        color: const Color(0xFF1F2937),
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 16,
                       ),
                     ),
@@ -692,7 +692,7 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
               Text(
                 'Verified Attendance',
                 style: GoogleFonts.inter(
-                  color: const Color(0xFF4B5563),
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),
@@ -703,7 +703,7 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 15),
                 decoration: BoxDecoration(
                   color: const Color(0x7F9CA3AF),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  border: Border.all(color: Theme.of(context).dividerColor),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -711,7 +711,7 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
                     Text(
                       _verifiedAttendance.toString(),
                       style: GoogleFonts.inter(
-                        color: const Color(0xFF1F2937),
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 16,
                       ),
                     ),

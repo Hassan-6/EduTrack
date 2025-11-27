@@ -98,6 +98,7 @@ class AuthProvider extends ChangeNotifier {
           'email': email,
           'userType': isInstructor ? 'instructor' : 'student',
           'isInstructor': isInstructor,
+          'profileIconIndex': 0, // Default profile icon
         };
         
         // Add roll number for students if provided

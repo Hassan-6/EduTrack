@@ -213,7 +213,7 @@ class _JournalScreenState extends State<JournalScreen> {
           Text(
             _showFavorites ? 'Favorites' : 'Journal',
             style: GoogleFonts.inter(
-              color: const Color(0xFF111827),
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 18,
               fontWeight: FontWeight.w600,
             ),
@@ -242,7 +242,7 @@ class _JournalScreenState extends State<JournalScreen> {
                     child: Icon(
                       _isSearching ? Icons.close : Icons.search,
                       size: 20,
-                      color: const Color(0xFF6B7280),
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                     ),
                   ),
                 ),
@@ -260,7 +260,7 @@ class _JournalScreenState extends State<JournalScreen> {
                     child: Icon(
                       _showFavorites ? Icons.bookmark : Icons.bookmark_border,
                       size: 20,
-                      color: _showFavorites ? const Color(0xFF4E9FEC) : const Color(0xFF6B7280),
+                      color: _showFavorites ? const Color(0xFF4E9FEC) : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                     ),
                   ),
                 ),
@@ -320,7 +320,7 @@ class _JournalScreenState extends State<JournalScreen> {
                           child: Text(
                             '${index + 1}',
                             style: GoogleFonts.inter(
-                              color: _currentPage == index ? Colors.white : const Color(0xFF6B7280),
+                              color: _currentPage == index ? Colors.white : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                             ),
@@ -383,18 +383,18 @@ class _JournalScreenState extends State<JournalScreen> {
               margin: const EdgeInsets.only(bottom: 16),
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE5E7EB)),
+                border: Border.all(color: Theme.of(context).dividerColor),
               ),
               child: TextField(
                 controller: _searchController,
                 onChanged: _onSearch,
                 decoration: InputDecoration(
                   hintText: 'Search journal entries...',
-                  hintStyle: GoogleFonts.inter(color: const Color(0xFF9CA3AF)),
+                  hintStyle: GoogleFonts.inter(color: Theme.of(context).hintColor),
                   border: InputBorder.none,
-                  icon: const Icon(Icons.search, color: Color(0xFF6B7280)),
+                  icon: Icon(Icons.search, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
                 ),
               ),
             ),
@@ -434,7 +434,7 @@ class _JournalScreenState extends State<JournalScreen> {
         title: Text(
           entry.title,
           style: GoogleFonts.inter(
-            color: const Color(0xFF111827),
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -448,7 +448,7 @@ class _JournalScreenState extends State<JournalScreen> {
                   ? '${entry.content.substring(0, 100)}...' 
                   : entry.content,
               style: GoogleFonts.inter(
-                color: const Color(0xFF6B7280),
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                 fontSize: 14,
               ),
             ),
@@ -456,7 +456,7 @@ class _JournalScreenState extends State<JournalScreen> {
             Text(
               'Created: ${_formatDate(entry.createdAt)}',
               style: GoogleFonts.inter(
-                color: const Color(0xFF9CA3AF),
+                color: Theme.of(context).hintColor,
                 fontSize: 12,
               ),
             ),
@@ -464,7 +464,7 @@ class _JournalScreenState extends State<JournalScreen> {
         ),
         trailing: Icon(
           entry.isFavorited ? Icons.favorite : Icons.favorite_border,
-          color: entry.isFavorited ? Colors.red : const Color(0xFF9CA3AF),
+          color: entry.isFavorited ? Colors.red : Theme.of(context).hintColor,
         ),
         onTap: () {
           if (_isSearching || _showFavorites) {
@@ -493,7 +493,7 @@ class _JournalScreenState extends State<JournalScreen> {
           Text(
             entry.title,
             style: GoogleFonts.inter(
-              color: const Color(0xFF111827),
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 24,
               fontWeight: FontWeight.w700,
             ),
@@ -535,9 +535,9 @@ class _JournalScreenState extends State<JournalScreen> {
           
           // Created Date
           Text(
-            'Created on:\n${_formatDate(entry.createdAt)}',
+            'Created on:\\n${_formatDate(entry.createdAt)}',
             style: GoogleFonts.inter(
-              color: const Color(0xFF6B7280),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
               fontSize: 14,
             ),
           ),
@@ -594,7 +594,7 @@ class _JournalScreenState extends State<JournalScreen> {
           Text(
             'Last edited: ${_formatDate(DateTime.now())}',
             style: GoogleFonts.inter(
-              color: const Color(0xFF9CA3AF),
+              color: Theme.of(context).hintColor,
               fontSize: 12,
             ),
           ),
@@ -610,13 +610,13 @@ class _JournalScreenState extends State<JournalScreen> {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: const Color(0xFFF3F4F6),
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(
           icon,
           size: 20,
-          color: color ?? const Color(0xFF374151),
+          color: color ?? Theme.of(context).colorScheme.onSurface,
         ),
       ),
     );
@@ -658,13 +658,13 @@ class _JournalScreenState extends State<JournalScreen> {
           Icon(
             icon,
             size: 24,
-            color: const Color(0xFF9CA3AF),
+            color: Theme.of(context).hintColor,
           ),
           const SizedBox(height: 4),
           Text(
             label,
             style: GoogleFonts.inter(
-              color: const Color(0xFF9CA3AF),
+              color: Theme.of(context).hintColor,
               fontSize: 12,
             ),
           ),

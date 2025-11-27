@@ -4,9 +4,9 @@ import 'package:provider/provider.dart';
 import '../services/firebase_service.dart';
 import '../services/auth_provider.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../widgets/profile_avatar.dart';
 import 'profile_viewer_screen.dart';
 import 'profile_screen.dart';
-import '../utils/theme_provider.dart';
 import '../utils/route_manager.dart';
 
 class QAWallScreen extends StatefulWidget {
@@ -361,18 +361,17 @@ class _QAWallScreenState extends State<QAWallScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDark = themeProvider.isDarkMode;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF1F2937) : const Color(0xFFF9FAFB),
+      backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
-        backgroundColor: isDark ? const Color(0xFF111827) : Colors.white,
+        backgroundColor: Theme.of(context).cardColor,
         elevation: 0,
         leading: IconButton(
           icon: Icon(
             Icons.arrow_back,
-            color: isDark ? Colors.white : const Color(0xFF1F2937),
+            color: Theme.of(context).colorScheme.onSurface,
           ),
           onPressed: () {
             Navigator.pushReplacementNamed(context, RouteManager.getMainMenuRoute());
@@ -381,7 +380,7 @@ class _QAWallScreenState extends State<QAWallScreen> {
         title: Text(
           'Q&A Wall',
           style: GoogleFonts.inter(
-            color: isDark ? Colors.white : const Color(0xFF1F2937),
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 20,
             fontWeight: FontWeight.w600,
           ),
@@ -453,7 +452,7 @@ class _QAWallScreenState extends State<QAWallScreen> {
 
   Widget _buildFilterSection(bool isDark) {
     return Container(
-      color: isDark ? const Color(0xFF111827) : Colors.white,
+      color: Theme.of(context).cardColor,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -483,13 +482,13 @@ class _QAWallScreenState extends State<QAWallScreen> {
         decoration: BoxDecoration(
           color: isSelected
               ? const Color(0xFF6366F1)
-              : (isDark ? const Color(0xFF374151) : const Color(0xFFF3F4F6)),
+              : Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
           label,
           style: GoogleFonts.inter(
-            color: isSelected ? Colors.white : (isDark ? Colors.grey[300] : const Color(0xFF6B7280)),
+            color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
             fontSize: 14,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
           ),
@@ -519,7 +518,7 @@ class _QAWallScreenState extends State<QAWallScreen> {
             
             return Card(
               margin: const EdgeInsets.only(bottom: 16),
-              color: isDark ? const Color(0xFF111827) : Colors.white,
+              color: Theme.of(context).cardColor,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               elevation: 2,
               child: Padding(
@@ -540,13 +539,14 @@ class _QAWallScreenState extends State<QAWallScreen> {
                                   userProfile: UserProfile(
                                     name: profile['name'] ?? 'Unknown',
                                     username: '@${profile['rollNumber'] ?? 'unknown'}',
-                                    major: '${profile['userType'] ?? 'User'}',
+                                    major: profile['major'] ?? 'Not specified',
                                     age: '',
                                     rollNumber: profile['rollNumber'] ?? '',
                                     phoneNumber: profile['phoneNumber'] ?? '',
                                     email: profile['email'] ?? '',
-                                    semester: '',
+                                    semester: profile['semester'] ?? 'Not specified',
                                     cgpa: '',
+                                    profileIconIndex: profile['profileIconIndex'] ?? 0,
                                   ),
                                 ),
                               ),
@@ -556,13 +556,17 @@ class _QAWallScreenState extends State<QAWallScreen> {
                       },
                       child: Row(
                         children: [
-                          CircleAvatar(
-                            backgroundColor: const Color(0xFF6366F1),
-                            radius: 20,
-                            child: Text(
-                              authorName.isNotEmpty ? authorName[0].toUpperCase() : '?',
-                              style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600),
-                            ),
+                          FutureBuilder(
+                            future: FirebaseService.getUserProfile(authorId),
+                            builder: (context, snapshot) {
+                              final iconIndex = snapshot.hasData && snapshot.data != null
+                                  ? (snapshot.data!['profileIconIndex'] ?? 0)
+                                  : 0;
+                              return ProfileAvatar(
+                                iconIndex: iconIndex,
+                                radius: 20,
+                              );
+                            },
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -574,7 +578,7 @@ class _QAWallScreenState extends State<QAWallScreen> {
                                   style: GoogleFonts.inter(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,
-                                    color: isDark ? Colors.white : const Color(0xFF1F2937),
+                                    color: Theme.of(context).colorScheme.onSurface,
                                   ),
                                 ),
                                 if (authorRoll.isNotEmpty)
@@ -582,7 +586,7 @@ class _QAWallScreenState extends State<QAWallScreen> {
                                     authorRoll,
                                     style: GoogleFonts.inter(
                                       fontSize: 13,
-                                      color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
+                                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                                     ),
                                   ),
                               ],
@@ -614,7 +618,7 @@ class _QAWallScreenState extends State<QAWallScreen> {
                       style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white : const Color(0xFF1F2937),
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     if (question['content'] != null && question['content'].isNotEmpty) ...[
@@ -623,7 +627,7 @@ class _QAWallScreenState extends State<QAWallScreen> {
                         question['content'],
                         style: GoogleFonts.inter(
                           fontSize: 14,
-                          color: isDark ? Colors.grey[300] : const Color(0xFF6B7280),
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                         ),
                       ),
                     ],
@@ -689,13 +693,14 @@ class _QAWallScreenState extends State<QAWallScreen> {
                             userProfile: UserProfile(
                               name: profile['name'] ?? 'Unknown',
                               username: '@${profile['rollNumber'] ?? 'unknown'}',
-                              major: '${profile['userType'] ?? 'User'}',
+                              major: profile['major'] ?? 'Not specified',
                               age: '',
                               rollNumber: profile['rollNumber'] ?? '',
                               phoneNumber: profile['phoneNumber'] ?? '',
                               email: profile['email'] ?? '',
-                              semester: '',
+                              semester: profile['semester'] ?? 'Not specified',
                               cgpa: '',
+                              profileIconIndex: profile['profileIconIndex'] ?? 0,
                             ),
                           ),
                         ),
@@ -705,17 +710,17 @@ class _QAWallScreenState extends State<QAWallScreen> {
                 },
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      backgroundColor: const Color(0xFF10B981),
-                      radius: 14,
-                      child: Text(
-                        authorName.isNotEmpty ? authorName[0].toUpperCase() : '?',
-                        style: GoogleFonts.inter(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                    FutureBuilder(
+                      future: FirebaseService.getUserProfile(authorId),
+                      builder: (context, snapshot) {
+                        final iconIndex = snapshot.hasData && snapshot.data != null
+                            ? (snapshot.data!['profileIconIndex'] ?? 0)
+                            : 0;
+                        return ProfileAvatar(
+                          iconIndex: iconIndex,
+                          radius: 14,
+                        );
+                      },
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -723,7 +728,7 @@ class _QAWallScreenState extends State<QAWallScreen> {
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white : const Color(0xFF1F2937),
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -739,7 +744,7 @@ class _QAWallScreenState extends State<QAWallScreen> {
                 reply['content'] ?? '',
                 style: GoogleFonts.inter(
                   fontSize: 14,
-                  color: isDark ? Colors.grey[300] : const Color(0xFF4B5563),
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
                 ),
               ),
             ],

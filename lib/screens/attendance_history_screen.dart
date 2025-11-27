@@ -30,18 +30,18 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
+      backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).cardColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1F2937)),
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           'Attendance History',
           style: GoogleFonts.inter(
-            color: const Color(0xFF1F2937),
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 20,
             fontWeight: FontWeight.w600,
           ),
@@ -61,7 +61,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
                   Text(
                     'No attendance records yet',
                     style: GoogleFonts.inter(
-                      color: const Color(0xFF6B7280),
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
@@ -70,7 +70,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
                   Text(
                     'Attendance sessions will appear here',
                     style: GoogleFonts.inter(
-                      color: const Color(0xFF9CA3AF),
+                      color: Theme.of(context).hintColor,
                       fontSize: 14,
                     ),
                   ),
@@ -84,7 +84,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: const [
                       BoxShadow(
@@ -121,7 +121,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
                                 Text(
                                   widget.course.name,
                                   style: GoogleFonts.inter(
-                                    color: const Color(0xFF1F2937),
+                                    color: Theme.of(context).colorScheme.onSurface,
                                     fontSize: 18,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -130,7 +130,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
                                 Text(
                                   '${_records.length} attendance session${_records.length != 1 ? 's' : ''}',
                                   style: GoogleFonts.inter(
-                                    color: const Color(0xFF6B7280),
+                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                                     fontSize: 14,
                                   ),
                                 ),
@@ -148,7 +148,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
                 Text(
                   'All Sessions',
                   style: GoogleFonts.inter(
-                    color: const Color(0xFF1F2937),
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                   ),
@@ -172,9 +172,9 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: Theme.of(context).dividerColor),
         boxShadow: const [
           BoxShadow(
             color: Color(0x0C000000),
@@ -227,7 +227,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
                             child: Text(
                               date,
                               style: GoogleFonts.inter(
-                                color: const Color(0xFF1F2937),
+                                color: Theme.of(context).colorScheme.onSurface,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -267,7 +267,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
                     Text(
                       '$present/$total students present',
                       style: GoogleFonts.inter(
-                        color: const Color(0xFF6B7280),
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                         fontSize: 13,
                       ),
                     ),
@@ -319,7 +319,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
             child: Text(
               'Cancel',
               style: GoogleFonts.inter(
-                color: const Color(0xFF6B7280),
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
               ),
             ),
           ),

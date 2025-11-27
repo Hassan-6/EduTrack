@@ -566,6 +566,29 @@ class FirebaseService {
     }
   }
 
+  /// Fallback: query users collection for users who have this course in their `enrolledCourses` field
+  static Future<List<Map<String, dynamic>>> getUsersEnrolledInCourse(String courseId) async {
+    try {
+      print('Fallback: querying users with enrolledCourses arrayContains $courseId');
+      QuerySnapshot usersSnapshot = await _firebaseFirestore
+          .collection('users')
+          .where('enrolledCourses', arrayContains: courseId)
+          .get();
+
+      List<Map<String, dynamic>> users = [];
+      for (var doc in usersSnapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        users.add(data);
+      }
+      print('Found ${users.length} users via fallback query');
+      return users;
+    } catch (e) {
+      print('Error in fallback getUsersEnrolledInCourse: $e');
+      return [];
+    }
+  }
+
   // Remove student from course
   static Future<void> removeStudentFromCourse(
     String courseId,
@@ -825,7 +848,7 @@ class FirebaseService {
         'scheduledDate': Timestamp.fromDate(scheduledDate),
         'durationMinutes': durationMinutes,
         'questions': questions,
-        'isActive': true,
+        'isActive': false, // Start inactive, will activate at scheduled time
         'createdAt': FieldValue.serverTimestamp(),
         'submissions': {}, // Map of studentId -> submission data
       });
@@ -883,13 +906,74 @@ class FirebaseService {
           .doc(quizId)
           .update({
         'isActive': false,
+        'manuallyEnded': true, // Mark as manually ended by instructor
         'endedAt': FieldValue.serverTimestamp(),
       });
       
-      print('Quiz $quizId deactivated');
+      print('Quiz $quizId deactivated manually');
     } catch (e) {
       print('Error deactivating quiz: $e');
       rethrow;
+    }
+  }
+
+  /// Check and update quiz status based on schedule and duration
+  static Future<void> updateQuizStatus({
+    required String courseId,
+    required String quizId,
+    required Map<String, dynamic> quizData,
+  }) async {
+    try {
+      final scheduledDate = (quizData['scheduledDate'] as Timestamp?)?.toDate();
+      final durationMinutes = quizData['durationMinutes'] as int? ?? 60;
+      final isCurrentlyActive = quizData['isActive'] as bool? ?? false;
+      final manuallyEnded = quizData['manuallyEnded'] as bool? ?? false;
+      
+      if (scheduledDate == null) {
+        print('Quiz $quizId has no scheduled date');
+        return;
+      }
+      
+      // Don't reactivate if quiz was manually ended by instructor
+      if (manuallyEnded) {
+        print('Quiz $quizId was manually ended - skipping automatic status update');
+        return;
+      }
+      
+      final now = DateTime.now();
+      final endTime = scheduledDate.add(Duration(minutes: durationMinutes));
+      
+      // Check if quiz should be active (current time is between start and end)
+      final shouldBeActive = now.isAfter(scheduledDate) && now.isBefore(endTime);
+      
+      // Update status if it differs from what it should be
+      if (shouldBeActive && !isCurrentlyActive) {
+        // Activate the quiz
+        await _firebaseFirestore
+            .collection('courses')
+            .doc(courseId)
+            .collection('quizzes')
+            .doc(quizId)
+            .update({
+          'isActive': true,
+          'activatedAt': FieldValue.serverTimestamp(),
+        });
+        print('Quiz $quizId activated at scheduled time');
+      } else if (!shouldBeActive && isCurrentlyActive && now.isAfter(endTime)) {
+        // Deactivate the quiz (duration has passed)
+        await _firebaseFirestore
+            .collection('courses')
+            .doc(courseId)
+            .collection('quizzes')
+            .doc(quizId)
+            .update({
+          'isActive': false,
+          'endedAt': FieldValue.serverTimestamp(),
+        });
+        print('Quiz $quizId automatically deactivated after duration');
+      }
+    } catch (e) {
+      print('Error updating quiz status: $e');
     }
   }
 

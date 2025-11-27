@@ -9,6 +9,9 @@ import 'question_results_screen.dart';
 import 'quiz_results_screen.dart';
 import '../utils/theme_provider.dart';
 import '../services/firebase_service.dart';
+import '../widgets/profile_avatar.dart';
+import 'profile_screen.dart';
+import 'profile_viewer_screen.dart';
 
 class CourseDetailScreen extends StatefulWidget {
   final Course course;
@@ -55,7 +58,21 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
       setState(() => _courseData = courseData);
       
       // Load enrolled students
-      final students = await FirebaseService.getEnrolledStudents(widget.course.id);
+      List<Map<String, dynamic>> students =
+          await FirebaseService.getEnrolledStudents(widget.course.id);
+
+      // If the course document's enrolledStudents array is empty or returned
+      // results look incomplete (for example only the current user), try a
+      // fallback that queries the `users` collection for users who list the
+      // course in their `enrolledCourses` field.
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+      if (students.isEmpty || (students.length == 1 && currentUserId != null && students.any((s) => s['id'] == currentUserId))) {
+        final fallback = await FirebaseService.getUsersEnrolledInCourse(widget.course.id);
+        if (fallback.isNotEmpty) {
+          students = fallback;
+        }
+      }
+
       setState(() => _enrolledStudents = students);
     } catch (e) {
       print('Error loading course info: $e');
@@ -88,7 +105,19 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
       
       // Check for active quizzes
       final quizzes = await FirebaseService.getCourseQuizzes(widget.course.id);
-      final activeQuizzes = quizzes.where((q) => q['isActive'] == true).toList();
+      
+      // Update quiz statuses based on schedule before checking
+      for (var quiz in quizzes) {
+        await FirebaseService.updateQuizStatus(
+          courseId: widget.course.id,
+          quizId: quiz['id'],
+          quizData: quiz,
+        );
+      }
+      
+      // Fetch updated quiz list after status updates
+      final updatedQuizzes = await FirebaseService.getCourseQuizzes(widget.course.id);
+      final activeQuizzes = updatedQuizzes.where((q) => q['isActive'] == true).toList();
       
       // Check if student has already submitted to active quiz
       bool hasSubmittedQuiz = false;
@@ -97,9 +126,6 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
         final submissions = activeQuiz['submissions'] as Map<String, dynamic>? ?? {};
         hasSubmittedQuiz = submissions.containsKey(userId);
       }
-      
-      // Note: Auto-deactivation should be handled server-side or by instructors
-      // Students should not attempt to deactivate quizzes
       
       setState(() {
         _popupQuestionAvailable = activePopups.isNotEmpty && !hasSubmittedPopup;
@@ -240,11 +266,54 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    widget.course.instructor,
-                    style: GoogleFonts.inter(
-                      color: Colors.white.withOpacity(0.9),
-                      fontSize: 16,
+                  GestureDetector(
+                    onTap: () async {
+                      if (_courseData != null && _courseData!['instructorId'] != null) {
+                        try {
+                          final instructorProfile = await FirebaseService.getUserProfile(_courseData!['instructorId']);
+                          if (instructorProfile != null && mounted) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ProfileViewerScreen(
+                                  userProfile: UserProfile(
+                                    name: instructorProfile['name'] ?? widget.course.instructor,
+                                    username: '@${(instructorProfile['name'] ?? '').replaceAll(' ', '.').toLowerCase()}',
+                                    major: instructorProfile['major'] ?? 'Not specified',
+                                    age: instructorProfile['age'] ?? '',
+                                    rollNumber: instructorProfile['rollNumber'] ?? '',
+                                    phoneNumber: instructorProfile['phoneNumber'] ?? '',
+                                    email: instructorProfile['email'] ?? '',
+                                    semester: instructorProfile['semester'] ?? 'Not specified',
+                                    cgpa: instructorProfile['cgpa'] ?? 'N/A',
+                                    profileIconIndex: instructorProfile['profileIconIndex'] ?? 0,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          print('Error loading instructor profile: $e');
+                        }
+                      }
+                    },
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.course.instructor,
+                          style: GoogleFonts.inter(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(
+                          Icons.person,
+                          size: 18,
+                          color: Colors.white.withOpacity(0.7),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -408,8 +477,31 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
   Widget _buildStudentListItem(Map<String, dynamic> student) {
     final name = student['name'] ?? 'Unknown';
     final rollNumber = student['rollNumber'] ?? 'N/A';
+    final profileIconIndex = student['profileIconIndex'] ?? 0;
     
-    return Container(
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProfileViewerScreen(
+              userProfile: UserProfile(
+                name: name,
+                username: '@${rollNumber.toLowerCase()}',
+                major: student['major'] ?? 'Not specified',
+                age: student['age'] ?? '',
+                rollNumber: rollNumber,
+                phoneNumber: student['phoneNumber'] ?? '',
+                email: student['email'] ?? '',
+                semester: student['semester'] ?? 'Not specified',
+                cgpa: student['cgpa'] ?? 'N/A',
+                profileIconIndex: profileIconIndex,
+              ),
+            ),
+          ),
+        );
+      },
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -419,17 +511,9 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
       ),
       child: Row(
         children: [
-          CircleAvatar(
+          ProfileAvatar(
+            iconIndex: profileIconIndex ?? 0,
             radius: 20,
-            backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-            child: Text(
-              name.isNotEmpty ? name[0].toUpperCase() : '?',
-              style: GoogleFonts.inter(
-                color: Theme.of(context).colorScheme.primary,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -456,6 +540,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

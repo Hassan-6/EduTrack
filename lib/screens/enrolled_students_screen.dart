@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/firebase_service.dart';
+import '../widgets/profile_avatar.dart';
+import 'profile_screen.dart';
+import 'profile_viewer_screen.dart';
 
 class EnrolledStudentsScreen extends StatefulWidget {
   final String courseId;
@@ -120,12 +123,12 @@ class _EnrolledStudentsScreenState extends State<EnrolledStudentsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
+      backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).cardColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1F2937)),
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
         title: Column(
@@ -134,7 +137,7 @@ class _EnrolledStudentsScreenState extends State<EnrolledStudentsScreen> {
             Text(
               'Enrolled Students',
               style: GoogleFonts.inter(
-                color: const Color(0xFF1F2937),
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
@@ -142,7 +145,7 @@ class _EnrolledStudentsScreenState extends State<EnrolledStudentsScreen> {
             Text(
               widget.courseTitle,
               style: GoogleFonts.inter(
-                color: const Color(0xFF6B7280),
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                 fontSize: 12,
               ),
             ),
@@ -185,7 +188,7 @@ class _EnrolledStudentsScreenState extends State<EnrolledStudentsScreen> {
               style: GoogleFonts.inter(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF1F2937),
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 8),
@@ -193,7 +196,7 @@ class _EnrolledStudentsScreenState extends State<EnrolledStudentsScreen> {
               'Students will appear here once they enroll in your course',
               style: GoogleFonts.inter(
                 fontSize: 14,
-                color: const Color(0xFF6B7280),
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
               ),
               textAlign: TextAlign.center,
             ),
@@ -214,14 +217,37 @@ class _EnrolledStudentsScreenState extends State<EnrolledStudentsScreen> {
     final email = student['email'] ?? '';
     final rollNumber = student['rollNumber'] ?? 'N/A';
     final enrolledDate = _formatDate(student['enrolledAt']);
+    final profileIconIndex = student['profileIconIndex'] ?? 0;
     
     print('After extraction: name=$name, email=$email, rollNumber=$rollNumber');
 
-    return Container(
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProfileViewerScreen(
+              userProfile: UserProfile(
+                name: name,
+                username: '@${rollNumber.toLowerCase()}',
+                major: student['major'] ?? 'Not specified',
+                age: student['age'] ?? '',
+                rollNumber: rollNumber,
+                phoneNumber: student['phoneNumber'] ?? '',
+                email: email,
+                semester: student['semester'] ?? 'Not specified',
+                cgpa: student['cgpa'] ?? 'N/A',
+                profileIconIndex: profileIconIndex,
+              ),
+            ),
+          ),
+        );
+      },
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -234,23 +260,9 @@ class _EnrolledStudentsScreenState extends State<EnrolledStudentsScreen> {
       child: Row(
         children: [
           // Avatar
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: const Color(0xFF2563EB),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Center(
-              child: Text(
-                (name.isNotEmpty ? name[0] : 'S').toUpperCase(),
-                style: GoogleFonts.inter(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ),
+          ProfileAvatar(
+            iconIndex: profileIconIndex ?? 0,
+            radius: 24,
           ),
           const SizedBox(width: 12),
           // Student Info
@@ -263,7 +275,7 @@ class _EnrolledStudentsScreenState extends State<EnrolledStudentsScreen> {
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF1F2937),
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -272,14 +284,14 @@ class _EnrolledStudentsScreenState extends State<EnrolledStudentsScreen> {
                     Icon(
                       Icons.badge_outlined,
                       size: 14,
-                      color: const Color(0xFF6B7280),
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                     ),
                     const SizedBox(width: 4),
                     Text(
                       'Roll: $rollNumber',
                       style: GoogleFonts.inter(
                         fontSize: 13,
-                        color: const Color(0xFF6B7280),
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -290,7 +302,7 @@ class _EnrolledStudentsScreenState extends State<EnrolledStudentsScreen> {
                   email,
                   style: GoogleFonts.inter(
                     fontSize: 12,
-                    color: const Color(0xFF9CA3AF),
+                    color: Theme.of(context).hintColor,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -298,7 +310,7 @@ class _EnrolledStudentsScreenState extends State<EnrolledStudentsScreen> {
                   'Enrolled: $enrolledDate',
                   style: GoogleFonts.inter(
                     fontSize: 12,
-                    color: const Color(0xFF9CA3AF),
+                    color: Theme.of(context).hintColor,
                   ),
                 ),
               ],
@@ -312,6 +324,7 @@ class _EnrolledStudentsScreenState extends State<EnrolledStudentsScreen> {
             tooltip: 'Remove student',
           ),
         ],
+      ),
       ),
     );
   }
