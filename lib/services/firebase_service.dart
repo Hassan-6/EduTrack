@@ -173,6 +173,41 @@ class FirebaseService {
     }
   }
 
+  static Future<void> deleteUserData(String userId) async {
+    try {
+      // Delete user document from Firestore
+      await _firebaseFirestore.collection('users').doc(userId).delete();
+      
+      // Delete user's tasks
+      final tasksQuery = await _firebaseFirestore
+          .collection('tasks')
+          .where('userId', isEqualTo: userId)
+          .get();
+      
+      for (var doc in tasksQuery.docs) {
+        await doc.reference.delete();
+      }
+      
+      // Delete user's Q&A posts
+      final qnaQuery = await _firebaseFirestore
+          .collection('qna')
+          .where('userId', isEqualTo: userId)
+          .get();
+      
+      for (var doc in qnaQuery.docs) {
+        await doc.reference.delete();
+      }
+      
+      // Note: Course enrollments and other related data will need to be handled
+      // based on your specific requirements (e.g., remove user from course enrollments)
+      
+      print('User data deleted successfully');
+    } catch (e) {
+      print('Error deleting user data: $e');
+      rethrow;
+    }
+  }
+
   static Future<void> verifyOTP(String userId, String otp, Map<String, dynamic> courseData) async {
     try {
       // Store OTP verification in Firestore
@@ -207,6 +242,7 @@ class FirebaseService {
         'enrolledStudents': [],
         'pendingRequests': [],
         'isActive': true,
+        'isArchived': false,
       });
       print('Course created successfully with ID: ${docRef.id}');
       return docRef.id;
@@ -224,14 +260,47 @@ class FirebaseService {
           .where('instructorId', isEqualTo: instructorId)
           .get();
       
-      print('Found ${snapshot.docs.length} courses');
-      return snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        data['id'] = doc.id;
-        return data;
-      }).toList();
+      // Filter out archived courses (treat missing isArchived field as false)
+      final courses = snapshot.docs
+          .map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            data['id'] = doc.id;
+            return data;
+          })
+          .where((course) => course['isArchived'] != true)
+          .toList();
+      
+      print('Found ${courses.length} active courses');
+      return courses;
     } catch (e) {
       print('Error fetching instructor courses: $e');
+      rethrow;
+    }
+  }
+
+  // Get archived courses for instructor
+  static Future<List<Map<String, dynamic>>> getInstructorArchivedCourses(String instructorId) async {
+    try {
+      print('Fetching archived courses for instructorId: $instructorId');
+      QuerySnapshot snapshot = await _firebaseFirestore
+          .collection('courses')
+          .where('instructorId', isEqualTo: instructorId)
+          .get();
+      
+      // Filter for archived courses only
+      final archivedCourses = snapshot.docs
+          .map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            data['id'] = doc.id;
+            return data;
+          })
+          .where((course) => course['isArchived'] == true)
+          .toList();
+      
+      print('Found ${archivedCourses.length} archived courses');
+      return archivedCourses;
+    } catch (e) {
+      print('Error fetching instructor archived courses: $e');
       rethrow;
     }
   }
@@ -430,13 +499,40 @@ class FirebaseService {
           .where('enrolledStudents', arrayContains: studentId)
           .get();
       
-      return snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        data['id'] = doc.id;
-        return data;
-      }).toList();
+      // Filter out archived courses (treat missing isArchived field as false)
+      return snapshot.docs
+          .map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            data['id'] = doc.id;
+            return data;
+          })
+          .where((course) => course['isArchived'] != true)
+          .toList();
     } catch (e) {
       print('Error fetching student courses: $e');
+      rethrow;
+    }
+  }
+
+  // Get archived courses for student
+  static Future<List<Map<String, dynamic>>> getStudentArchivedCourses(String studentId) async {
+    try {
+      QuerySnapshot snapshot = await _firebaseFirestore
+          .collection('courses')
+          .where('enrolledStudents', arrayContains: studentId)
+          .get();
+      
+      // Filter for archived courses only
+      return snapshot.docs
+          .map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            data['id'] = doc.id;
+            return data;
+          })
+          .where((course) => course['isArchived'] == true)
+          .toList();
+    } catch (e) {
+      print('Error fetching student archived courses: $e');
       rethrow;
     }
   }
@@ -463,6 +559,29 @@ class FirebaseService {
       print('Course updated successfully');
     } catch (e) {
       print('Error updating course: $e');
+      rethrow;
+    }
+  }
+
+  // Archive course (End Course)
+  static Future<void> archiveCourse(String courseId) async {
+    try {
+      // Validate user is an instructor
+      final isInstructor = await validateUserRole('instructor');
+      if (!isInstructor) {
+        throw Exception('Only instructors can archive courses');
+      }
+
+      await _firebaseFirestore
+          .collection('courses')
+          .doc(courseId)
+          .update({
+        'isArchived': true,
+        'archivedAt': FieldValue.serverTimestamp(),
+      });
+      print('Course archived successfully');
+    } catch (e) {
+      print('Error archiving course: $e');
       rethrow;
     }
   }

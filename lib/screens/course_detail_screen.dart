@@ -326,9 +326,54 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
 
             const SizedBox(height: 24),
 
-            // Activities Section
+            // Archived Status Banner
+            if (_courseData?['isArchived'] as bool? ?? false)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange, width: 1),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.archive, color: Colors.orange, size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Course Archived',
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.orange,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'This course has ended. No new activities are available.',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_courseData?['isArchived'] as bool? ?? false)
+            const SizedBox(height: 24),
+
+            // Activities Section (hidden if archived)
+            if (!(_courseData?['isArchived'] as bool? ?? false))
             _buildActivitiesSection(themeProvider),
             
+            if (!(_courseData?['isArchived'] as bool? ?? false))
             const SizedBox(height: 24),
             
             // History Section

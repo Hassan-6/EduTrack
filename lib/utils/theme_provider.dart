@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 
 class ThemeProvider with ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
-  Color _primaryColor = const Color(0xFF4E9FEC);
-  Color _secondaryColor = const Color(0xFF5CD6C0);
+  Color _primaryColor = const Color(0xFF6BA3F5); // Softer Blue
+  Color _secondaryColor = const Color(0xFF7DD4C5); // Softer Teal
 
   ThemeMode get themeMode => _themeMode;
   Color get primaryColor => _primaryColor;

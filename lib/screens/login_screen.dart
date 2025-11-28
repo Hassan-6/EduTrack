@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../utils/theme_provider.dart';
 import '../services/email_history_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -378,28 +380,40 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildActionButtons() {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    
     return Column(
       children: [
         // Login Button
-        SizedBox(
+        Container(
           width: 164,
           height: 40,
-          child: ElevatedButton(
-            onPressed: _login,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4F94CD),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          decoration: BoxDecoration(
+            gradient: themeProvider.gradient,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
               ),
-              elevation: 0,
-            ),
-            child: Text(
-              'Login',
-              style: GoogleFonts.inter(
-                color: const Color(0xFFFFFEFE),
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                height: 1.4,
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: _login,
+              child: Center(
+                child: Text(
+                  'Login',
+                  style: GoogleFonts.inter(
+                    color: const Color(0xFFFFFEFE),
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
+                ),
               ),
             ),
           ),
@@ -408,26 +422,36 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 27),
         
         // Create Account Button
-        SizedBox(
+        Container(
           width: 164,
           height: 40,
-          child: ElevatedButton(
-            onPressed: _navigateToRegistration,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4F94CD),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          decoration: BoxDecoration(
+            gradient: themeProvider.gradient,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
               ),
-              elevation: 0,
-            ),
-            child: Text(
-              'Create Account',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
-                color: const Color(0xFFFFFEFE),
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                height: 1.4,
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: _navigateToRegistration,
+              child: Center(
+                child: Text(
+                  'Create Account',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    color: const Color(0xFFFFFEFE),
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
+                ),
               ),
             ),
           ),
@@ -436,26 +460,36 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 23),
         
         // Instructor Login Button
-        SizedBox(
+        Container(
           width: 164,
           height: 40,
-          child: ElevatedButton(
-            onPressed: _navigateToInstructorLogin,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4F94CD),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          decoration: BoxDecoration(
+            gradient: themeProvider.gradient,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
               ),
-              elevation: 0,
-            ),
-            child: Text(
-              'Ins. Login',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
-                color: const Color(0xFFFFFEFE),
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                height: 1.4,
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: _navigateToInstructorLogin,
+              child: Center(
+                child: Text(
+                  'Ins. Login',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    color: const Color(0xFFFFFEFE),
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
+                ),
               ),
             ),
           ),

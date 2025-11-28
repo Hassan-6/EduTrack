@@ -806,36 +806,46 @@ class _AuthScreenState extends State<AuthScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         children: [
-          SizedBox(
+          Container(
             width: double.infinity,
             height: 56,
-            child: ElevatedButton(
-              onPressed: _isLoading ? null : _submitForm,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor, // THEME: Dynamic button
-                foregroundColor: Theme.of(context).colorScheme.onPrimary, // THEME: Dynamic text
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            decoration: BoxDecoration(
+              gradient: _isLoading ? null : themeProvider.gradient,
+              color: _isLoading ? Theme.of(context).disabledColor.withOpacity(0.3) : null,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: _isLoading ? null : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
                 ),
-                elevation: 2,
-                shadowColor: Theme.of(context).primaryColor.withOpacity(0.3), // THEME: Dynamic shadow
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: _isLoading ? null : _submitForm,
+                child: Center(
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : Text(
+                          _isLogin ? 'Sign In' : 'Create Account',
+                          style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                ),
               ),
-              child: _isLoading
-                  ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.onPrimary), // THEME: Dynamic progress
-                      ),
-                    )
-                  : Text(
-                      _isLogin ? 'Sign In' : 'Create Account',
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
             ),
           ),
         ],

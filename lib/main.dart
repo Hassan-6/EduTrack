@@ -13,6 +13,7 @@ import 'screens/course_enrollment_screen.dart';
 import 'screens/ins_courses_screen.dart';
 import 'screens/course_detail_screen.dart';
 import 'screens/ins_course_detail_screen.dart';
+import 'screens/archived_courses_screen.dart';
 import 'screens/attendance_screen.dart';
 import 'screens/ins_attendance_screen.dart';
 import 'screens/profile_screen.dart';
@@ -79,6 +80,7 @@ class MyApp extends StatelessWidget {
                 return CourseDetailScreen(course: course);
               },
               '/course_enrollment': (context) => const CourseEnrollmentScreen(),
+              '/archived_courses': (context) => const ArchivedCoursesScreen(),
               '/ins_courses': (context) => const InstructorCoursesScreen(),
               '/ins_course_detail': (context) {
                 final course =

@@ -785,25 +785,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
-          SizedBox(
+          Container(
             width: double.infinity,
             height: 56,
-            child: ElevatedButton(
-              onPressed: _toggleEdit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: themeProvider.primaryColor, // THEME: Dynamic primary color
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            decoration: BoxDecoration(
+              gradient: themeProvider.gradient,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
                 ),
-                elevation: 4,
-                shadowColor: Colors.black.withOpacity(0.1),
-              ),
-              child: Text(
-                _isEditing ? 'Save Changes' : 'Edit Profile',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: _toggleEdit,
+                child: Center(
+                  child: Text(
+                    _isEditing ? 'Save Changes' : 'Edit Profile',
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -852,17 +861,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               },
             ),
             ListTile(
-              leading: Icon(Icons.help_outline, color: Theme.of(context).primaryColor),
-              title: Text('Help & Support', style: TextStyle(color: Theme.of(context).colorScheme.onBackground)),
-              onTap: () {
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
               leading: Icon(Icons.privacy_tip_outlined, color: Theme.of(context).primaryColor),
               title: Text('Privacy Policy', style: TextStyle(color: Theme.of(context).colorScheme.onBackground)),
               onTap: () {
                 Navigator.pop(context);
+                _navigateToPrivacyPolicy();
               },
             ),
             ListTile(
@@ -870,11 +873,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
               title: Text('About', style: TextStyle(color: Theme.of(context).colorScheme.onBackground)),
               onTap: () {
                 Navigator.pop(context);
+                _navigateToAbout();
               },
             ),
           ],
         ),
       ),
+    );
+  }
+
+  void _navigateToPrivacyPolicy() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const PrivacyPolicyScreen()),
+    );
+  }
+
+  void _navigateToAbout() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AboutScreen()),
     );
   }
 }
@@ -984,6 +1002,123 @@ class AcademicRecordsScreen extends StatelessWidget {
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), // THEME: Dynamic text color
                 fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class PrivacyPolicyScreen extends StatelessWidget {
+  const PrivacyPolicyScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.background,
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).cardColor,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onBackground),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Privacy Policy',
+          style: GoogleFonts.inter(
+            color: Theme.of(context).colorScheme.onBackground,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Privacy Policy content will be added here.',
+              style: GoogleFonts.poppins(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'This section will include information about how we collect, use, and protect user data.',
+              style: GoogleFonts.inter(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AboutScreen extends StatelessWidget {
+  const AboutScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.background,
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).cardColor,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onBackground),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'About',
+          style: GoogleFonts.inter(
+            color: Theme.of(context).colorScheme.onBackground,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'About EduTrack',
+              style: GoogleFonts.poppins(
+                color: Theme.of(context).colorScheme.onBackground,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Version 1.0.0',
+              style: GoogleFonts.inter(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'EduTrack is an educational platform designed to help students and instructors manage courses, assignments, and academic activities.',
+              style: GoogleFonts.inter(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Additional information about the app, team, and features will be added here.',
+              style: GoogleFonts.inter(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                fontSize: 14,
               ),
             ),
           ],

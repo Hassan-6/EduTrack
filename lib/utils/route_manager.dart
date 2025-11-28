@@ -30,6 +30,9 @@ class RouteManager {
         : '/course_detail';
   }
   
+  // Archived Courses
+  static String getArchivedCoursesRoute() => '/archived_courses';
+  
   // Shared features - same for both user types
   static String getToDoListRoute() => '/todo';
   static String getCalendarRoute() => '/calendar';

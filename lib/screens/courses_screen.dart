@@ -9,6 +9,7 @@ import '../utils/theme_provider.dart';
 import '../services/auth_provider.dart';
 import '../services/firebase_service.dart';
 import '../utils/course_categories.dart';
+import 'archived_courses_screen.dart';
 
 class CoursesScreen extends StatefulWidget {
   const CoursesScreen({super.key});
@@ -185,6 +186,17 @@ class _CoursesScreenState extends State<CoursesScreen> {
         centerTitle: true,
         actions: [
           IconButton(
+            icon: Icon(Icons.archive, color: Theme.of(context).colorScheme.onBackground), // THEME: Dynamic icon
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ArchivedCoursesScreen(),
+                ),
+              );
+            },
+          ),
+          IconButton(
             icon: Icon(Icons.search, color: Theme.of(context).colorScheme.onBackground), // THEME: Dynamic icon
             onPressed: _searchCourses,
           ),
@@ -274,12 +286,11 @@ class _CoursesScreenState extends State<CoursesScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(9999),
           onTap: _addNewCourse,
-          child: Center(
-            child: Image.network(
-              'https://storage.googleapis.com/codeless-app.appspot.com/uploads%2Fimages%2F0SCOMduDvxzkW25UhUo3%2F1acf3707-fc14-48b1-a087-6a99c88d6baa.png',
-              width: 16,
-              height: 16,
-              fit: BoxFit.contain,
+          child: const Center(
+            child: Icon(
+              Icons.add,
+              color: Colors.white,
+              size: 28,
             ),
           ),
         ),

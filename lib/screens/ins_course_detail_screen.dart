@@ -3,7 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/course_model.dart';
 import '../utils/route_manager.dart';
+import '../utils/theme_provider.dart';
 import '../services/firebase_service.dart';
+import 'package:provider/provider.dart';
 import 'present_question_screen.dart';
 import 'question_results_screen.dart';
 import 'attendance_history_screen.dart';
@@ -663,46 +665,49 @@ class _InstructorCourseDetailScreenState
             ),
           ),
           const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            height: 56,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x19000000),
-                  spreadRadius: 0,
-                  offset: Offset(0, 10),
-                  blurRadius: 15,
+          Builder(
+            builder: (context) {
+              final themeProvider = Provider.of<ThemeProvider>(context);
+              return Container(
+                width: double.infinity,
+                height: 56,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x19000000),
+                      spreadRadius: 0,
+                      offset: Offset(0, 10),
+                      blurRadius: 15,
+                    ),
+                    BoxShadow(
+                      color: Color(0x19000000),
+                      spreadRadius: 0,
+                      offset: Offset(0, 4),
+                      blurRadius: 6,
+                    ),
+                  ],
+                  gradient: themeProvider.gradient,
                 ),
-                BoxShadow(
-                  color: Color(0x19000000),
-                  spreadRadius: 0,
-                  offset: Offset(0, 4),
-                  blurRadius: 6,
-                ),
-              ],
-              gradient: const LinearGradient(
-                colors: [Color(0xFF4E9FEC), Color(0xFF5CD6C0)],
-              ),
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: _presentQuestion,
-                child: Center(
-                  child: Text(
-                    'Present Question',
-                    style: GoogleFonts.inter(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: _presentQuestion,
+                    child: Center(
+                      child: Text(
+                        'Present Question',
+                        style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
           const SizedBox(height: 24),
 
@@ -724,46 +729,49 @@ class _InstructorCourseDetailScreenState
             ),
           ),
           const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            height: 56,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x19000000),
-                  spreadRadius: 0,
-                  offset: Offset(0, 10),
-                  blurRadius: 15,
+          Builder(
+            builder: (context) {
+              final themeProvider = Provider.of<ThemeProvider>(context);
+              return Container(
+                width: double.infinity,
+                height: 56,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x19000000),
+                      spreadRadius: 0,
+                      offset: Offset(0, 10),
+                      blurRadius: 15,
+                    ),
+                    BoxShadow(
+                      color: Color(0x19000000),
+                      spreadRadius: 0,
+                      offset: Offset(0, 4),
+                      blurRadius: 6,
+                    ),
+                  ],
+                  gradient: themeProvider.gradient,
                 ),
-                BoxShadow(
-                  color: Color(0x19000000),
-                  spreadRadius: 0,
-                  offset: Offset(0, 4),
-                  blurRadius: 6,
-                ),
-              ],
-              gradient: const LinearGradient(
-                colors: [Color(0xFF4E9FEC), Color(0xFF5CD6C0)],
-              ),
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: _scheduleQuiz,
-                child: Center(
-                  child: Text(
-                    'Schedule Quiz',
-                    style: GoogleFonts.inter(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: _scheduleQuiz,
+                    child: Center(
+                      child: Text(
+                        'Schedule Quiz',
+                        style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
           const SizedBox(height: 24),
 
@@ -1725,31 +1733,34 @@ class _EnrollmentRequestsScreenState extends State<EnrollmentRequestsScreen> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Container(
-                  height: 44,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF4E9FEC), Color(0xFF5CD6C0)],
-                    ),
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(8),
-                      onTap: () => _handleRequest(index, true),
-                      child: Center(
-                        child: Text(
-                          'Accept',
-                          style: GoogleFonts.inter(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                child: Builder(
+                  builder: (context) {
+                    final themeProvider = Provider.of<ThemeProvider>(context);
+                    return Container(
+                      height: 44,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        gradient: themeProvider.gradient,
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: () => _handleRequest(index, true),
+                          child: Center(
+                            child: Text(
+                              'Accept',
+                              style: GoogleFonts.inter(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
               ),
             ],

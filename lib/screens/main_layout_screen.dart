@@ -63,7 +63,8 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
     ];
 
     return Container(
-      height: 77,
+      constraints: BoxConstraints(minHeight: 65, maxHeight: 80),
+      padding: EdgeInsets.symmetric(vertical: 8),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),

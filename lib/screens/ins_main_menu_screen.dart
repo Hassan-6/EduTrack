@@ -272,7 +272,8 @@ class _InstructorMainMenuScreenState extends State<InstructorMainMenuScreen> {
 
   Widget _buildAppBar() {
     return Container(
-      height: 96,
+      constraints: BoxConstraints(minHeight: 60, maxHeight: 72),
+      padding: const EdgeInsets.only(left: 24, right: 24, top: 8, bottom: 8),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor, // THEME: Dynamic app bar color
         boxShadow: [
@@ -286,7 +287,6 @@ class _InstructorMainMenuScreenState extends State<InstructorMainMenuScreen> {
           ),
         ],
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

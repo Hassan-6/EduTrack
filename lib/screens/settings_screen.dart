@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../utils/theme_provider.dart';
+import '../services/firebase_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -15,21 +17,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _selectedTheme = 'System';
   String _selectedReminderFrequency = 'Daily';
   bool _notificationsEnabled = true;
-  bool _cameraPermissionsEnabled = true;
   bool _calendarSyncEnabled = false;
-  double _fontSizeValue = 0.5;
 
   final List<String> _themeOptions = ['Light', 'Dark', 'System'];
-  final List<String> _reminderOptions = ['Daily', 'Weekly', 'Monthly'];
+  final List<String> _reminderOptions = ['Hourly', '4 Hours', '8 Hours', 'Daily', '3 Days', '5 Days', 'Weekly'];
 
-  // Available accent colors
+  // Available accent colors - expanded list with softer colors
   final List<Color> _accentColors = [
-    const Color(0xFF4E9FEC), // Blue
-    const Color(0xFF5CD6C0), // Teal
-    const Color(0xFF9C27B0), // Purple
-    const Color(0xFFF44336), // Red
-    const Color(0xFFFF9800), // Orange
-    const Color(0xFF4CAF50), // Green
+    const Color(0xFF6BA3F5), // Soft Blue
+    const Color(0xFF7DD4C5), // Soft Teal
+    const Color(0xFFB39DDB), // Soft Purple
+    const Color(0xFFEF9A9A), // Soft Red
+    const Color(0xFFFFB74D), // Soft Orange
+    const Color(0xFF81C784), // Soft Green
+    const Color(0xFFF48FB1), // Soft Pink
+    const Color(0xFF4DD0E1), // Soft Cyan
+    const Color(0xFFFFF176), // Soft Yellow
+    const Color(0xFFA1887F), // Soft Brown
+    const Color(0xFF90A4AE), // Soft Blue Grey
+    const Color(0xFF7986CB), // Soft Indigo
+    const Color(0xFFAED581), // Soft Light Green
+    const Color(0xFFFF8A65), // Soft Deep Orange
+    const Color(0xFF9575CD), // Soft Deep Purple
+    const Color(0xFF4DB6AC), // Soft Teal Dark
   ];
 
   @override
@@ -79,6 +89,404 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _handleSecondaryColorChange(Color color) {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     themeProvider.setSecondaryColor(color);
+  }
+
+  Future<void> _showChangePasswordDialog() async {
+    final TextEditingController currentPasswordController = TextEditingController();
+    final TextEditingController newPasswordController = TextEditingController();
+    final TextEditingController confirmPasswordController = TextEditingController();
+    bool obscureCurrentPassword = true;
+    bool obscureNewPassword = true;
+    bool obscureConfirmPassword = true;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: Theme.of(context).cardColor,
+          title: Text(
+            'Change Password',
+            style: GoogleFonts.poppins(
+              color: Theme.of(context).colorScheme.onBackground,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: currentPasswordController,
+                  obscureText: obscureCurrentPassword,
+                  style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
+                  decoration: InputDecoration(
+                    labelText: 'Current Password',
+                    labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Theme.of(context).dividerColor),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Theme.of(context).primaryColor),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        obscureCurrentPassword ? Icons.visibility_off : Icons.visibility,
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          obscureCurrentPassword = !obscureCurrentPassword;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: newPasswordController,
+                  obscureText: obscureNewPassword,
+                  style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
+                  decoration: InputDecoration(
+                    labelText: 'New Password',
+                    labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Theme.of(context).dividerColor),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Theme.of(context).primaryColor),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        obscureNewPassword ? Icons.visibility_off : Icons.visibility,
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          obscureNewPassword = !obscureNewPassword;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: confirmPasswordController,
+                  obscureText: obscureConfirmPassword,
+                  style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
+                  decoration: InputDecoration(
+                    labelText: 'Confirm New Password',
+                    labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Theme.of(context).dividerColor),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Theme.of(context).primaryColor),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          obscureConfirmPassword = !obscureConfirmPassword;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                // Validate inputs
+                if (currentPasswordController.text.isEmpty ||
+                    newPasswordController.text.isEmpty ||
+                    confirmPasswordController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please fill in all fields'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                if (newPasswordController.text != confirmPasswordController.text) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('New passwords do not match'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                if (newPasswordController.text.length < 6) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Password must be at least 6 characters'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                try {
+                  // Get current user
+                  final user = FirebaseAuth.instance.currentUser;
+                  if (user == null || user.email == null) {
+                    throw Exception('No user logged in');
+                  }
+
+                  // Reauthenticate user with current password
+                  final credential = EmailAuthProvider.credential(
+                    email: user.email!,
+                    password: currentPasswordController.text,
+                  );
+
+                  await user.reauthenticateWithCredential(credential);
+
+                  // Update password
+                  await user.updatePassword(newPasswordController.text);
+
+                  Navigator.pop(context);
+                  
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Password changed successfully!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } on FirebaseAuthException catch (e) {
+                  String errorMessage = 'Failed to change password';
+                  
+                  if (e.code == 'wrong-password') {
+                    errorMessage = 'Current password is incorrect';
+                  } else if (e.code == 'weak-password') {
+                    errorMessage = 'New password is too weak';
+                  } else if (e.code == 'requires-recent-login') {
+                    errorMessage = 'Please log out and log in again before changing password';
+                  }
+
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(errorMessage),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: ${e.toString()}'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: Text(
+                'Change Password',
+                style: TextStyle(color: Theme.of(context).primaryColor),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    currentPasswordController.dispose();
+    newPasswordController.dispose();
+    confirmPasswordController.dispose();
+  }
+
+  Future<void> _showDeleteAccountDialog() async {
+    final TextEditingController passwordController = TextEditingController();
+    bool obscurePassword = true;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: Theme.of(context).cardColor,
+          title: Row(
+            children: [
+              const Icon(Icons.warning, color: Color(0xFFEF4444)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Delete Account',
+                  style: GoogleFonts.poppins(
+                    color: const Color(0xFFEF4444),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'This action cannot be undone. All your data will be permanently deleted.',
+                  style: GoogleFonts.inter(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Please enter your password to confirm:',
+                  style: GoogleFonts.inter(
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: passwordController,
+                  obscureText: obscurePassword,
+                  style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Theme.of(context).dividerColor),
+                    ),
+                    focusedBorder: const OutlineInputBorder(
+                      borderSide: BorderSide(color: Color(0xFFEF4444)),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          obscurePassword = !obscurePassword;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                if (passwordController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please enter your password'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                try {
+                  // Get current user
+                  final user = FirebaseAuth.instance.currentUser;
+                  if (user == null || user.email == null) {
+                    throw Exception('No user logged in');
+                  }
+
+                  // Reauthenticate user
+                  final credential = EmailAuthProvider.credential(
+                    email: user.email!,
+                    password: passwordController.text,
+                  );
+
+                  await user.reauthenticateWithCredential(credential);
+
+                  // Delete user data from Firestore
+                  await FirebaseService.deleteUserData(user.uid);
+
+                  // Delete authentication account
+                  await user.delete();
+
+                  // Navigate to registration screen
+                  if (mounted) {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/registration',
+                      (route) => false,
+                    );
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Account deleted successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } on FirebaseAuthException catch (e) {
+                  String errorMessage = 'Failed to delete account';
+                  
+                  if (e.code == 'wrong-password') {
+                    errorMessage = 'Incorrect password';
+                  } else if (e.code == 'requires-recent-login') {
+                    errorMessage = 'Please log out and log in again before deleting account';
+                  }
+
+                  Navigator.pop(context);
+                  
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(errorMessage),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  Navigator.pop(context);
+                  
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: ${e.toString()}'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text(
+                'Delete Account',
+                style: TextStyle(color: Color(0xFFEF4444)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    passwordController.dispose();
   }
 
   @override
@@ -228,6 +636,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   selectedColor: themeProvider.primaryColor,
                   onColorSelected: _handlePrimaryColorChange,
                 ),
+                height: 80.0,
               ),
               
               // Secondary Accent Color
@@ -239,6 +648,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   selectedColor: themeProvider.secondaryColor,
                   onColorSelected: _handleSecondaryColorChange,
                 ),
+                height: 80.0,
               ),
               
               // Preview Gradient
@@ -247,21 +657,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 iconColor: Theme.of(context).primaryColor.withOpacity(0.1),
                 title: 'Gradient Preview',
                 trailing: Container(
-                  width: 80,
-                  height: 30,
+                  width: 120,
+                  height: 40,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                     gradient: themeProvider.gradient,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              
-              // Font Size
-              _buildSettingsRow(
-                icon: Icons.text_fields,
-                iconColor: Theme.of(context).primaryColor.withOpacity(0.1),
-                title: 'Font Size',
-                trailing: _buildFontSizeSlider(),
               ),
             ],
           ),
@@ -304,21 +713,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onChanged: (bool value) {
                     setState(() {
                       _notificationsEnabled = value;
-                    });
-                  },
-                ),
-              ),
-              
-              // Camera Permissions
-              _buildSettingsRow(
-                icon: Icons.camera_alt_outlined,
-                iconColor: Theme.of(context).primaryColor.withOpacity(0.1),
-                title: 'Camera Permissions',
-                trailing: _buildToggleSwitch(
-                  value: _cameraPermissionsEnabled,
-                  onChanged: (bool value) {
-                    setState(() {
-                      _cameraPermissionsEnabled = value;
                     });
                   },
                 ),
@@ -387,20 +781,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: Column(
             children: [
               // Change Password
-              _buildSettingsRow(
-                icon: Icons.lock_outline,
-                iconColor: Theme.of(context).primaryColor.withOpacity(0.1),
-                title: 'Change Password',
-                trailing: _buildNavigationArrow(),
+              GestureDetector(
+                onTap: _showChangePasswordDialog,
+                child: _buildSettingsRow(
+                  icon: Icons.lock_outline,
+                  iconColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                  title: 'Change Password',
+                  trailing: _buildNavigationArrow(),
+                ),
               ),
               
               // Delete Account
-              _buildSettingsRow(
-                icon: Icons.delete_outline,
-                iconColor: const Color(0xFFFEF2F2),
-                title: 'Delete Account',
-                titleColor: const Color(0xFFEF4444),
-                trailing: _buildNavigationArrow(),
+              GestureDetector(
+                onTap: _showDeleteAccountDialog,
+                child: _buildSettingsRow(
+                  icon: Icons.delete_outline,
+                  iconColor: const Color(0xFFFEF2F2),
+                  title: 'Delete Account',
+                  titleColor: const Color(0xFFEF4444),
+                  trailing: _buildNavigationArrow(),
+                ),
               ),
             ],
           ),
@@ -414,10 +814,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required Color iconColor,
     required String title,
     required Widget trailing,
-    Color? titleColor, // Make it nullable by adding ?
+    Color? titleColor,
+    double height = 65.0, // Make height configurable
   }) {
     return Container(
-      height: 65,
+      height: height,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         border: Border.all(color: Theme.of(context).dividerColor),
@@ -447,7 +848,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Text(
               title,
               style: GoogleFonts.inter(
-                color: titleColor ?? Theme.of(context).colorScheme.onBackground, // Use null-aware operator
+                color: titleColor ?? Theme.of(context).colorScheme.onBackground,
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
                 height: 1.5,
@@ -512,25 +913,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required Function(Color) onColorSelected,
   }) {
     return SizedBox(
-      width: 150,
-      height: 40,
-      child: ListView.builder(
+      width: 200,
+      height: 60,
+      child: GridView.builder(
         scrollDirection: Axis.horizontal,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          childAspectRatio: 1,
+        ),
         itemCount: _accentColors.length,
         itemBuilder: (context, index) {
           final color = _accentColors[index];
           return GestureDetector(
             onTap: () => onColorSelected(color),
             child: Container(
-              width: 30,
-              height: 30,
-              margin: const EdgeInsets.only(right: 8),
+              width: 26,
+              height: 26,
               decoration: BoxDecoration(
                 color: color,
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(13),
                 border: Border.all(
                   color: selectedColor == color 
-                      ? Colors.white 
+                      ? Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white
+                          : Colors.black
                       : Colors.transparent,
                   width: 2,
                 ),
@@ -549,88 +957,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildFontSizeSlider() {
-    return SizedBox(
-      width: 98,
-      height: 20,
-      child: Stack(
-        children: [
-          // Small A
-          Positioned(
-            left: -1,
-            top: 1,
-            child: Text(
-              'A',
-              style: GoogleFonts.inter(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                fontSize: 12,
-                height: 1.3,
-              ),
-            ),
-          ),
-          
-          // Slider Track
-          Positioned(
-            left: 16,
-            top: 8,
-            child: Container(
-              width: 64,
-              height: 8,
-              decoration: BoxDecoration(
-                color: Theme.of(context).dividerColor,
-                borderRadius: BorderRadius.circular(9999),
-              ),
-              child: Stack(
-                children: [
-                  // Slider Thumb
-                  Positioned(
-                    left: _fontSizeValue * 32,
-                    top: -4,
-                    child: GestureDetector(
-                      onHorizontalDragUpdate: (details) {
-                        setState(() {
-                          _fontSizeValue = (_fontSizeValue + details.delta.dx / 64).clamp(0.0, 1.0);
-                        });
-                      },
-                      child: Container(
-                        width: 15,
-                        height: 15,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).primaryColor,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          // Large A
-          Positioned(
-            left: 87,
-            top: -1,
-            child: Text(
-              'A',
-              style: GoogleFonts.inter(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                fontSize: 14,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   Widget _buildToggleSwitch({
     required bool value,

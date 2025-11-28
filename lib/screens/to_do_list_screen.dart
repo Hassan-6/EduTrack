@@ -292,16 +292,20 @@ class _TodoListScreenState extends State<TodoListScreen> {
     final dateOnly = DateTime(date.year, date.month, date.day);
 
     if (dateOnly == today) {
-      return 'Today';
+      return 'Due Today';
     } else if (dateOnly.isBefore(today)) {
       return 'Overdue';
     } else if (dateOnly == today.add(const Duration(days: 1))) {
-      return 'Tomorrow';
+      return 'Due Tomorrow';
     } else if (dateOnly.isBefore(today.add(const Duration(days: 7)))) {
-      return DateFormat('EEEE').format(date);
+      return 'Due ${DateFormat('EEEE').format(date)}';
     } else {
-      return DateFormat('MMM d').format(date);
+      return 'Due ${DateFormat('MMM d').format(date)}';
     }
+  }
+
+  String _formatTimestamp(DateTime date) {
+    return DateFormat('MMM d, yyyy \'at\' h:mm a').format(date);
   }
 
   Color _getCategoryColor(String category) {
@@ -601,21 +605,6 @@ class _TodoListScreenState extends State<TodoListScreen> {
           const SizedBox(height: 12),
           Row(
             children: [
-              Icon(
-                Icons.calendar_today,
-                size: 14,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                _formatDueDate(task.dueDate),
-                style: GoogleFonts.inter(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                  fontSize: 13,
-                  decoration: task.isCompleted ? TextDecoration.lineThrough : null,
-                ),
-              ),
-              const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
@@ -631,6 +620,97 @@ class _TodoListScreenState extends State<TodoListScreen> {
                   ),
                 ),
               ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _formatDueDate(task.dueDate).contains('Overdue')
+                      ? Colors.red.withOpacity(0.1)
+                      : _formatDueDate(task.dueDate).contains('Today')
+                          ? Colors.orange.withOpacity(0.1)
+                          : Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _formatDueDate(task.dueDate).contains('Overdue')
+                        ? Colors.red
+                        : _formatDueDate(task.dueDate).contains('Today')
+                            ? Colors.orange
+                            : Colors.blue,
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.calendar_today,
+                      size: 12,
+                      color: _formatDueDate(task.dueDate).contains('Overdue')
+                          ? Colors.red
+                          : _formatDueDate(task.dueDate).contains('Today')
+                              ? Colors.orange
+                              : Colors.blue,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _formatDueDate(task.dueDate),
+                      style: GoogleFonts.inter(
+                        color: _formatDueDate(task.dueDate).contains('Overdue')
+                            ? Colors.red
+                            : _formatDueDate(task.dueDate).contains('Today')
+                                ? Colors.orange
+                                : Colors.blue,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.access_time,
+                    size: 12,
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Created: ${_formatTimestamp(task.createdAt)}',
+                    style: GoogleFonts.inter(
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+              if (task.isCompleted) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle,
+                      size: 12,
+                      color: Colors.green.withOpacity(0.7),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Completed: ${_formatTimestamp(task.completedAt)}',
+                      style: GoogleFonts.inter(
+                        color: Colors.green.withOpacity(0.8),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ],

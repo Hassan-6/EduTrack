@@ -276,15 +276,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
 
-  void _viewAttendanceHistory() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const AttendanceHistoryScreen(),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -307,12 +298,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           ),
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.history, color: Theme.of(context).colorScheme.onBackground), // THEME: Dynamic icon
-            onPressed: _viewAttendanceHistory,
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

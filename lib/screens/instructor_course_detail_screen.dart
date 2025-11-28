@@ -299,6 +299,53 @@ class _InstructorCourseDetailScreenState
     }
   }
 
+  Future<void> _archiveCourse() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('End Course'),
+        content: Text(
+          'Are you sure you want to end "${_courseData['title']}"? This will archive the course and prevent new quizzes or questions from being presented. The course will be moved to your archived courses.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.orange),
+            child: Text('End Course'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await FirebaseService.archiveCourse(_courseData['id']);
+        if (mounted) {
+          Navigator.pop(context, true); // Return true to indicate archival
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Course archived successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error archiving course: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   Future<void> _editCourse() async {
     final result = await Navigator.push(
       context,
@@ -435,13 +482,46 @@ class _InstructorCourseDetailScreenState
           ),
         ),
         actions: [
+          if (!(_courseData['isArchived'] as bool? ?? false))
           IconButton(
             icon: Icon(Icons.edit, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
             onPressed: _editCourse,
           ),
-          IconButton(
-            icon: const Icon(Icons.delete, color: Colors.red),
-            onPressed: _deleteCourse,
+          PopupMenuButton<String>(
+            icon: Icon(Icons.more_vert, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+            onSelected: (value) {
+              if (value == 'archive') {
+                _archiveCourse();
+              } else if (value == 'delete') {
+                _deleteCourse();
+              }
+            },
+            itemBuilder: (context) {
+              final isArchived = _courseData['isArchived'] as bool? ?? false;
+              return [
+                if (!isArchived)
+                PopupMenuItem(
+                  value: 'archive',
+                  child: Row(
+                    children: [
+                      Icon(Icons.archive, color: Colors.orange),
+                      SizedBox(width: 8),
+                      Text('End Course'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Delete Course'),
+                    ],
+                  ),
+                ),
+              ];
+            },
           ),
         ],
       ),
@@ -548,6 +628,49 @@ class _InstructorCourseDetailScreenState
                     ),
                     const SizedBox(height: 20),
 
+                    // Archived Status Banner
+                    if (_courseData['isArchived'] as bool? ?? false)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.orange, width: 1),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.archive, color: Colors.orange, size: 24),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Course Archived',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.orange,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'This course has ended. No new quizzes or questions can be presented.',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_courseData['isArchived'] as bool? ?? false)
+                    const SizedBox(height: 20),
+
                     // Stats Cards
                     Row(
                       children: [
@@ -573,6 +696,7 @@ class _InstructorCourseDetailScreenState
                     const SizedBox(height: 20),
 
                     // Quick Actions Section (Present Question & Schedule Quiz)
+                    if (!(_courseData['isArchived'] as bool? ?? false))
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),

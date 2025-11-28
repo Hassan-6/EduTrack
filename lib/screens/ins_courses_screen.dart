@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../utils/route_manager.dart';
+import '../utils/theme_provider.dart';
 import '../widgets/role_guard.dart';
 import 'create_course_screen.dart';
 import '../services/auth_provider.dart';
 import '../services/firebase_service.dart';
 import 'instructor_course_detail_screen.dart';
 import '../utils/course_categories.dart';
+import 'archived_courses_screen.dart';
 
 class InstructorCoursesScreen extends StatefulWidget {
   const InstructorCoursesScreen({super.key});
@@ -137,6 +139,17 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
         centerTitle: true,
         actions: [
           IconButton(
+            icon: Icon(Icons.archive, color: Theme.of(context).colorScheme.onBackground),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ArchivedCoursesScreen(),
+                ),
+              );
+            },
+          ),
+          IconButton(
             icon: Icon(Icons.search, color: Theme.of(context).colorScheme.onBackground),
             onPressed: _searchCourses,
           ),
@@ -212,6 +225,7 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
   }
 
   Widget _buildCustomFloatingActionButton() {
+    final themeProvider = Provider.of<ThemeProvider>(context);
     return Container(
       width: 56,
       height: 56,
@@ -231,12 +245,7 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
             blurRadius: 6,
           ),
         ],
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF4E9FEC),
-            Color(0xFF5CD6C0),
-          ],
-        ),
+        gradient: themeProvider.gradient, // THEME: Dynamic gradient
       ),
       child: Material(
         color: Colors.transparent,

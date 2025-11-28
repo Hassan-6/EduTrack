@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../utils/route_manager.dart';
+import '../utils/theme_provider.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../services/firebase_service.dart';
 import '../services/auth_provider.dart';
@@ -308,14 +309,6 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
           ),
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.more_vert, color: Theme.of(context).colorScheme.onBackground),
-            onPressed: () {
-              // Additional options menu
-            },
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -345,6 +338,7 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
   }
 
   Widget _buildOtpCard() {
+    final themeProvider = Provider.of<ThemeProvider>(context);
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -392,9 +386,7 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
               height: 56,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF4E9FEC), Color(0xFF5CD6C0)],
-                ),
+                gradient: themeProvider.gradient,
                 boxShadow: const [
                   BoxShadow(
                     color: Color(0x19000000),
@@ -743,15 +735,14 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
   }
 
   Widget _buildRecordAttendanceButton() {
+    final themeProvider = Provider.of<ThemeProvider>(context);
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 44),
       height: 56,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF4E9FEC), Color(0xFF5CD6C0)],
-        ),
+        gradient: themeProvider.gradient,
         boxShadow: const [
           BoxShadow(
             color: Color(0x19000000),

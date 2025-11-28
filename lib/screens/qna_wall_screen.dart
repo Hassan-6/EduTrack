@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../services/firebase_service.dart';
 import '../services/auth_provider.dart';
+import '../utils/theme_provider.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/profile_avatar.dart';
 import 'profile_viewer_screen.dart';
@@ -385,15 +386,6 @@ class _QAWallScreenState extends State<QAWallScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              Icons.add_circle_outline,
-              color: isDark ? Colors.white : const Color(0xFF6366F1),
-            ),
-            onPressed: _showAskQuestionDialog,
-          ),
-        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -443,9 +435,50 @@ class _QAWallScreenState extends State<QAWallScreen> {
                 ],
               ),
             ),
+      floatingActionButton: _buildQnAFloatingActionButton(),
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _currentBottomNavIndex,
         onTap: _onBottomNavTap,
+      ),
+    );
+  }
+
+  Widget _buildQnAFloatingActionButton() {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    return Container(
+      width: 56,
+      height: 56,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(9999),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x19000000),
+            spreadRadius: 0,
+            offset: Offset(0, 10),
+            blurRadius: 15,
+          ),
+          BoxShadow(
+            color: Color(0x19000000),
+            spreadRadius: 0,
+            offset: Offset(0, 4),
+            blurRadius: 6,
+          ),
+        ],
+        gradient: themeProvider.gradient,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(9999),
+          onTap: _showAskQuestionDialog,
+          child: const Center(
+            child: Icon(
+              Icons.add,
+              color: Colors.white,
+              size: 28,
+            ),
+          ),
+        ),
       ),
     );
   }
