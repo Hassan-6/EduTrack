@@ -15,7 +15,13 @@ class TaskService {
   }) async {
     try {
       final userId = _auth.currentUser?.uid;
-      if (userId == null) throw Exception('User not authenticated');
+      if (userId == null) {
+        print('ERROR: User not authenticated');
+        throw Exception('User not authenticated');
+      }
+
+      print('Creating task for user: $userId');
+      print('Task details - Title: $title, Category: $category, DueDate: $dueDate');
 
       final docRef = await _firestore
           .collection('users')
@@ -32,9 +38,15 @@ class TaskService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
+      print('Task created successfully with ID: ${docRef.id}');
       return docRef.id;
     } catch (e) {
       print('Error creating task: $e');
+      print('Error type: ${e.runtimeType}');
+      if (e is FirebaseException) {
+        print('Firebase error code: ${e.code}');
+        print('Firebase error message: ${e.message}');
+      }
       rethrow;
     }
   }

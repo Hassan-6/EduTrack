@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../utils/text_formatter.dart';
 
 class JournalScreen extends StatefulWidget {
   const JournalScreen({Key? key}) : super(key: key);
@@ -36,14 +37,40 @@ class _JournalScreenState extends State<JournalScreen> {
 
   final List<JournalEntry> _favoriteEntries = [];
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _contentController = TextEditingController();
+  final FocusNode _contentFocusNode = FocusNode();
   bool _showFavorites = false;
   bool _isSearching = false;
   List<JournalEntry> _searchResults = [];
+  
+  // Formatting states
+  bool _isBold = false;
+  bool _isItalic = false;
+  bool _isUnderline = false;
 
   @override
   void initState() {
     super.initState();
     _updateFavorites();
+    _loadCurrentEntry();
+  }
+
+  void _loadCurrentEntry() {
+    if (_journalEntries.isNotEmpty && _currentPage < _journalEntries.length) {
+      final entry = _journalEntries[_currentPage];
+      _titleController.text = entry.title;
+      _contentController.text = entry.content;
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _titleController.dispose();
+    _contentController.dispose();
+    _contentFocusNode.dispose();
+    super.dispose();
   }
 
   void _updateFavorites() {
@@ -138,6 +165,7 @@ class _JournalScreenState extends State<JournalScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: Column(
           children: [
@@ -288,6 +316,7 @@ class _JournalScreenState extends State<JournalScreen> {
                   onTap: () {
                     setState(() {
                       _currentPage--;
+                      _loadCurrentEntry();
                     });
                   },
                   child: const Icon(Icons.chevron_left, size: 24),
@@ -306,6 +335,7 @@ class _JournalScreenState extends State<JournalScreen> {
                         onTap: () {
                           setState(() {
                             _currentPage = index;
+                            _loadCurrentEntry();
                           });
                         },
                         child: Container(
@@ -338,6 +368,7 @@ class _JournalScreenState extends State<JournalScreen> {
                   onTap: () {
                     setState(() {
                       _currentPage++;
+                      _loadCurrentEntry();
                     });
                   },
                   child: const Icon(Icons.chevron_right, size: 24),
@@ -475,6 +506,7 @@ class _JournalScreenState extends State<JournalScreen> {
                 _isSearching = false;
                 _showFavorites = false;
                 _searchController.clear();
+                _loadCurrentEntry();
               });
             }
           }
@@ -486,62 +518,97 @@ class _JournalScreenState extends State<JournalScreen> {
   Widget _buildJournalEntry(JournalEntry entry) {
     return Padding(
       padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Title
-          Text(
-            entry.title,
-            style: GoogleFonts.inter(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Title
+            TextField(
+              controller: _titleController,
+              onChanged: (value) {
+                entry.title = value;
+              },
+              style: GoogleFonts.inter(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+              ),
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                hintText: 'Entry Title',
+                hintStyle: GoogleFonts.inter(
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                ),
+                contentPadding: EdgeInsets.zero,
+              ),
             ),
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Divider
-          Container(
-            height: 1,
-            color: const Color(0xFFE5E7EB),
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Content
-          Expanded(
-            child: SingleChildScrollView(
-              child: Text(
-                entry.content,
+            
+            const SizedBox(height: 16),
+            
+            // Divider
+            Container(
+              height: 1,
+              color: const Color(0xFFE5E7EB),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Content
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: 200,
+                maxHeight: MediaQuery.of(context).size.height * 0.4,
+              ),
+              child: TextField(
+                controller: _contentController,
+                focusNode: _contentFocusNode,
+                onChanged: (value) {
+                  entry.content = value;
+                },
+                maxLines: null,
+                keyboardType: TextInputType.multiline,
+                textAlignVertical: TextAlignVertical.top,
                 style: GoogleFonts.inter(
                   color: const Color(0xFF4B5563),
                   fontSize: 16,
                   height: 1.6,
                 ),
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  hintText: 'Start writing...',
+                  hintStyle: GoogleFonts.inter(
+                    color: const Color(0xFF4B5563).withOpacity(0.4),
+                    fontSize: 16,
+                    height: 1.6,
+                  ),
+                  contentPadding: EdgeInsets.zero,
+                ),
               ),
             ),
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Divider
-          Container(
-            height: 1,
-            color: const Color(0xFFE5E7EB),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Created Date
-          Text(
-            'Created on:\\n${_formatDate(entry.createdAt)}',
-            style: GoogleFonts.inter(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-              fontSize: 14,
+            
+            const SizedBox(height: 16),
+            
+            // Divider
+            Container(
+              height: 1,
+              color: const Color(0xFFE5E7EB),
             ),
-          ),
-        ],
+            
+            const SizedBox(height: 12),
+            
+            // Created Date
+            Text(
+              'Created: ${_formatDate(entry.createdAt)}',
+              style: GoogleFonts.inter(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -552,11 +619,11 @@ class _JournalScreenState extends State<JournalScreen> {
     final currentEntry = _journalEntries[_currentPage];
     
     return Container(
-      height: 120,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      height: 100,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border(top: BorderSide(color: const Color(0xFFE5E7EB))),
       ),
       child: Column(
         children: [
@@ -565,37 +632,38 @@ class _JournalScreenState extends State<JournalScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               // Bold
-              _buildToolbarButton(Icons.format_bold, () {}),
+              _buildToolbarButton(Icons.format_bold, _applyBold, tooltip: 'Bold', isActive: _isBold),
               
               // Italic
-              _buildToolbarButton(Icons.format_italic, () {}),
+              _buildToolbarButton(Icons.format_italic, _applyItalic, tooltip: 'Italic', isActive: _isItalic),
               
               // Underline
-              _buildToolbarButton(Icons.format_underlined, () {}),
+              _buildToolbarButton(Icons.format_underlined, _applyUnderline, tooltip: 'Underline', isActive: _isUnderline),
               
               // List
-              _buildToolbarButton(Icons.format_list_bulleted, () {}),
+              _buildToolbarButton(Icons.format_list_bulleted, _applyBulletList, tooltip: 'Bullet List'),
               
               // Favorite
               _buildToolbarButton(
                 currentEntry.isFavorited ? Icons.favorite : Icons.favorite_border,
                 () => _toggleFavorite(_currentPage),
                 color: currentEntry.isFavorited ? Colors.red : null,
+                tooltip: 'Favorite',
               ),
               
               // Delete
-              _buildToolbarButton(Icons.delete, () => _deleteEntry(_currentPage)),
+              _buildToolbarButton(Icons.delete, () => _deleteEntry(_currentPage), tooltip: 'Delete'),
             ],
           ),
           
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           
           // Timestamp
           Text(
             'Last edited: ${_formatDate(DateTime.now())}',
             style: GoogleFonts.inter(
               color: Theme.of(context).hintColor,
-              fontSize: 12,
+              fontSize: 11,
             ),
           ),
         ],
@@ -603,23 +671,227 @@ class _JournalScreenState extends State<JournalScreen> {
     );
   }
 
-  Widget _buildToolbarButton(IconData icon, VoidCallback onTap, {Color? color}) {
-    return GestureDetector(
+  void _applyBold() {
+    final selection = _contentController.selection;
+    final text = _contentController.text;
+    
+    if (!selection.isValid) return;
+    
+    if (selection.isCollapsed) {
+      // Toggle state for future typing
+      setState(() {
+        _isBold = !_isBold;
+      });
+      // Insert markers at cursor if activating
+      if (_isBold) {
+        final cursorPos = selection.baseOffset;
+        final newText = text.substring(0, cursorPos) + '**' + text.substring(cursorPos);
+        _contentController.text = newText;
+        _contentController.selection = TextSelection.collapsed(offset: cursorPos + 2);
+      }
+    } else {
+      // Wrap selected text
+      final start = selection.start;
+      final end = selection.end;
+      final selectedText = text.substring(start, end);
+      
+      // Check if already wrapped
+      final beforeStart = start >= 2 ? text.substring(start - 2, start) : '';
+      final afterEnd = end + 2 <= text.length ? text.substring(end, end + 2) : '';
+      
+      String newText;
+      int newCursorPos;
+      
+      if (beforeStart == '**' && afterEnd == '**') {
+        // Remove bold
+        newText = text.substring(0, start - 2) + selectedText + text.substring(end + 2);
+        newCursorPos = start - 2;
+        setState(() {
+          _isBold = false;
+        });
+      } else {
+        // Add bold
+        newText = text.substring(0, start) + '**' + selectedText + '**' + text.substring(end);
+        newCursorPos = end + 4;
+        setState(() {
+          _isBold = true;
+        });
+      }
+      
+      _contentController.text = newText;
+      _contentController.selection = TextSelection.collapsed(offset: newCursorPos);
+    }
+  }
+
+  void _applyItalic() {
+    final selection = _contentController.selection;
+    final text = _contentController.text;
+    
+    if (!selection.isValid) return;
+    
+    if (selection.isCollapsed) {
+      // Toggle state for future typing
+      setState(() {
+        _isItalic = !_isItalic;
+      });
+      // Insert markers at cursor if activating
+      if (_isItalic) {
+        final cursorPos = selection.baseOffset;
+        final newText = text.substring(0, cursorPos) + '*' + text.substring(cursorPos);
+        _contentController.text = newText;
+        _contentController.selection = TextSelection.collapsed(offset: cursorPos + 1);
+      }
+    } else {
+      // Wrap selected text
+      final start = selection.start;
+      final end = selection.end;
+      final selectedText = text.substring(start, end);
+      
+      // Check if already wrapped
+      final beforeStart = start >= 1 ? text.substring(start - 1, start) : '';
+      final afterEnd = end + 1 <= text.length ? text.substring(end, end + 1) : '';
+      
+      String newText;
+      int newCursorPos;
+      
+      if (beforeStart == '*' && afterEnd == '*') {
+        // Remove italic
+        newText = text.substring(0, start - 1) + selectedText + text.substring(end + 1);
+        newCursorPos = start - 1;
+        setState(() {
+          _isItalic = false;
+        });
+      } else {
+        // Add italic
+        newText = text.substring(0, start) + '*' + selectedText + '*' + text.substring(end);
+        newCursorPos = end + 2;
+        setState(() {
+          _isItalic = true;
+        });
+      }
+      
+      _contentController.text = newText;
+      _contentController.selection = TextSelection.collapsed(offset: newCursorPos);
+    }
+  }
+
+  void _applyUnderline() {
+    final selection = _contentController.selection;
+    final text = _contentController.text;
+    
+    if (!selection.isValid) return;
+    
+    if (selection.isCollapsed) {
+      // Toggle state for future typing
+      setState(() {
+        _isUnderline = !_isUnderline;
+      });
+      // Insert markers at cursor if activating
+      if (_isUnderline) {
+        final cursorPos = selection.baseOffset;
+        final newText = text.substring(0, cursorPos) + '__' + text.substring(cursorPos);
+        _contentController.text = newText;
+        _contentController.selection = TextSelection.collapsed(offset: cursorPos + 2);
+      }
+    } else {
+      // Wrap selected text
+      final start = selection.start;
+      final end = selection.end;
+      final selectedText = text.substring(start, end);
+      
+      // Check if already wrapped
+      final beforeStart = start >= 2 ? text.substring(start - 2, start) : '';
+      final afterEnd = end + 2 <= text.length ? text.substring(end, end + 2) : '';
+      
+      String newText;
+      int newCursorPos;
+      
+      if (beforeStart == '__' && afterEnd == '__') {
+        // Remove underline
+        newText = text.substring(0, start - 2) + selectedText + text.substring(end + 2);
+        newCursorPos = start - 2;
+        setState(() {
+          _isUnderline = false;
+        });
+      } else {
+        // Add underline
+        newText = text.substring(0, start) + '__' + selectedText + '__' + text.substring(end);
+        newCursorPos = end + 4;
+        setState(() {
+          _isUnderline = true;
+        });
+      }
+      
+      _contentController.text = newText;
+      _contentController.selection = TextSelection.collapsed(offset: newCursorPos);
+    }
+  }
+
+  void _applyBulletList() {
+    final selection = _contentController.selection;
+    final text = _contentController.text;
+    
+    if (!selection.isValid) return;
+    
+    if (selection.isCollapsed) {
+      // Add bullet at cursor position
+      final cursorPos = selection.baseOffset;
+      final lineStart = text.lastIndexOf('\n', cursorPos - 1) + 1;
+      final newText = text.substring(0, lineStart) + '• ' + text.substring(lineStart);
+      _contentController.text = newText;
+      _contentController.selection = TextSelection.collapsed(offset: cursorPos + 2);
+    } else {
+      // Add bullets to selected lines
+      final start = selection.start;
+      final end = selection.end;
+      final selectedText = text.substring(start, end);
+      final lines = selectedText.split('\n');
+      final bulletedLines = lines.map((line) {
+        if (line.trim().isEmpty) return line;
+        if (line.trimLeft().startsWith('• ')) {
+          return line.replaceFirst(RegExp(r'^\s*• '), '');
+        }
+        return '• $line';
+      }).join('\n');
+      
+      final newText = text.substring(0, start) + bulletedLines + text.substring(end);
+      _contentController.text = newText;
+      _contentController.selection = TextSelection(
+        baseOffset: start,
+        extentOffset: start + bulletedLines.length,
+      );
+    }
+    
+    setState(() {
+      _journalEntries[_currentPage].content = _contentController.text;
+    });
+  }
+
+  Widget _buildToolbarButton(IconData icon, VoidCallback onTap, {Color? color, String? tooltip, bool isActive = false}) {
+    final button = GestureDetector(
       onTap: onTap,
       child: Container(
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
+          color: isActive ? const Color(0xFF4E9FEC) : const Color(0xFFF3F4F6),
           borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isActive ? const Color(0xFF4E9FEC) : const Color(0xFFE5E7EB),
+          ),
         ),
         child: Icon(
           icon,
           size: 20,
-          color: color ?? Theme.of(context).colorScheme.onSurface,
+          color: isActive ? Colors.white : (color ?? const Color(0xFF374151)),
         ),
       ),
     );
+    
+    if (tooltip != null) {
+      return Tooltip(message: tooltip, child: button);
+    }
+    return button;
   }
 
   Widget _buildBottomNavigationBar() {

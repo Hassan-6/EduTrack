@@ -6,6 +6,7 @@ import '../utils/route_manager.dart';
 import '../utils/theme_provider.dart';
 import '../utils/category_color_helper.dart';
 import '../services/notes_service.dart';
+import '../utils/text_formatter.dart';
 import '../services/firebase_service.dart';
 import '../models/note.dart' as note_model;
 import '../models/journal_entry.dart';
@@ -535,14 +536,12 @@ class _NotesScreenState extends State<NotesScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            note.content,
-            style: GoogleFonts.inter(
+          FormattedTextWidget(
+            text: note.content,
+            baseStyle: GoogleFonts.inter(
               color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
               fontSize: 14,
             ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 16),
           Row(
@@ -750,6 +749,12 @@ class _JournalContentState extends State<JournalContent> {
 
   final TextEditingController _contentController = TextEditingController();
   final TextEditingController _titleController = TextEditingController();
+  final FocusNode _contentFocusNode = FocusNode();
+  
+  // Formatting states
+  bool _isBold = false;
+  bool _isItalic = false;
+  bool _isUnderline = false;
 
   @override
   void initState() {
@@ -930,62 +935,172 @@ class _JournalContentState extends State<JournalContent> {
   }
 
   void _applyBoldFormatting() {
-    _applyTextStyle('bold');
-  }
-
-  void _applyItalicFormatting() {
-    _applyTextStyle('italic');
-  }
-
-  void _applyUnderlineFormatting() {
-    _applyTextStyle('underline');
-  }
-
-  void _applyTextStyle(String style) {
     final selection = _contentController.selection;
-    if (!selection.isValid || selection.isCollapsed) return;
-
     final text = _contentController.text;
-    final selectedText = selection.textInside(text);
-    String styledText;
-
-    switch (style) {
-      case 'bold':
-        styledText = _toggleStyle(selectedText, '\u0001', '\u0002');
-        break;
-      case 'italic':
-        styledText = _toggleStyle(selectedText, '\u0003', '\u0004');
-        break;
-      case 'underline':
-        styledText = _toggleStyle(selectedText, '\u0005', '\u0006');
-        break;
-      default:
-        return;
+    
+    if (!selection.isValid) return;
+    
+    if (selection.isCollapsed) {
+      // Toggle state for future typing
+      setState(() {
+        _isBold = !_isBold;
+      });
+      // Insert markers at cursor if activating
+      if (_isBold) {
+        final cursorPos = selection.baseOffset;
+        final newText = text.substring(0, cursorPos) + '**' + text.substring(cursorPos);
+        _contentController.text = newText;
+        _contentController.selection = TextSelection.collapsed(offset: cursorPos + 2);
+      }
+    } else {
+      // Wrap selected text
+      final start = selection.start;
+      final end = selection.end;
+      final selectedText = text.substring(start, end);
+      
+      // Check if already wrapped
+      final beforeStart = start >= 2 ? text.substring(start - 2, start) : '';
+      final afterEnd = end + 2 <= text.length ? text.substring(end, end + 2) : '';
+      
+      String newText;
+      int newCursorPos;
+      
+      if (beforeStart == '**' && afterEnd == '**') {
+        // Remove bold
+        newText = text.substring(0, start - 2) + selectedText + text.substring(end + 2);
+        newCursorPos = start - 2;
+        setState(() {
+          _isBold = false;
+        });
+      } else {
+        // Add bold
+        newText = text.substring(0, start) + '**' + selectedText + '**' + text.substring(end);
+        newCursorPos = end + 4;
+        setState(() {
+          _isBold = true;
+        });
+      }
+      
+      _contentController.text = newText;
+      _contentController.selection = TextSelection.collapsed(offset: newCursorPos);
     }
-
-    final newText = text.replaceRange(selection.start, selection.end, styledText);
-    _contentController.text = newText;
-    _contentController.selection = TextSelection(
-      baseOffset: selection.start,
-      extentOffset: selection.start + styledText.length,
-    );
-    setState(() {});
     _saveChanges();
   }
 
-  String _toggleStyle(String text, String startMarker, String endMarker) {
-    if (text.startsWith(startMarker) && text.endsWith(endMarker)) {
-      return text.substring(1, text.length - 1);
+  void _applyItalicFormatting() {
+    final selection = _contentController.selection;
+    final text = _contentController.text;
+    
+    if (!selection.isValid) return;
+    
+    if (selection.isCollapsed) {
+      // Toggle state for future typing
+      setState(() {
+        _isItalic = !_isItalic;
+      });
+      // Insert markers at cursor if activating
+      if (_isItalic) {
+        final cursorPos = selection.baseOffset;
+        final newText = text.substring(0, cursorPos) + '*' + text.substring(cursorPos);
+        _contentController.text = newText;
+        _contentController.selection = TextSelection.collapsed(offset: cursorPos + 1);
+      }
+    } else {
+      // Wrap selected text
+      final start = selection.start;
+      final end = selection.end;
+      final selectedText = text.substring(start, end);
+      
+      // Check if already wrapped
+      final beforeStart = start >= 1 ? text.substring(start - 1, start) : '';
+      final afterEnd = end + 1 <= text.length ? text.substring(end, end + 1) : '';
+      
+      String newText;
+      int newCursorPos;
+      
+      if (beforeStart == '*' && afterEnd == '*') {
+        // Remove italic
+        newText = text.substring(0, start - 1) + selectedText + text.substring(end + 1);
+        newCursorPos = start - 1;
+        setState(() {
+          _isItalic = false;
+        });
+      } else {
+        // Add italic
+        newText = text.substring(0, start) + '*' + selectedText + '*' + text.substring(end);
+        newCursorPos = end + 2;
+        setState(() {
+          _isItalic = true;
+        });
+      }
+      
+      _contentController.text = newText;
+      _contentController.selection = TextSelection.collapsed(offset: newCursorPos);
     }
-    return '$startMarker$text$endMarker';
+    _saveChanges();
+  }
+
+  void _applyUnderlineFormatting() {
+    final selection = _contentController.selection;
+    final text = _contentController.text;
+    
+    if (!selection.isValid) return;
+    
+    if (selection.isCollapsed) {
+      // Toggle state for future typing
+      setState(() {
+        _isUnderline = !_isUnderline;
+      });
+      // Insert markers at cursor if activating
+      if (_isUnderline) {
+        final cursorPos = selection.baseOffset;
+        final newText = text.substring(0, cursorPos) + '__' + text.substring(cursorPos);
+        _contentController.text = newText;
+        _contentController.selection = TextSelection.collapsed(offset: cursorPos + 2);
+      }
+    } else {
+      // Wrap selected text
+      final start = selection.start;
+      final end = selection.end;
+      final selectedText = text.substring(start, end);
+      
+      // Check if already wrapped
+      final beforeStart = start >= 2 ? text.substring(start - 2, start) : '';
+      final afterEnd = end + 2 <= text.length ? text.substring(end, end + 2) : '';
+      
+      String newText;
+      int newCursorPos;
+      
+      if (beforeStart == '__' && afterEnd == '__') {
+        // Remove underline
+        newText = text.substring(0, start - 2) + selectedText + text.substring(end + 2);
+        newCursorPos = start - 2;
+        setState(() {
+          _isUnderline = false;
+        });
+      } else {
+        // Add underline
+        newText = text.substring(0, start) + '__' + selectedText + '__' + text.substring(end);
+        newCursorPos = end + 4;
+        setState(() {
+          _isUnderline = true;
+        });
+      }
+      
+      _contentController.text = newText;
+      _contentController.selection = TextSelection.collapsed(offset: newCursorPos);
+    }
+    _saveChanges();
   }
 
   Widget _buildStyledContentField() {
     return TextField(
       controller: _contentController,
+      focusNode: _contentFocusNode,
       onChanged: (value) => _saveChanges(),
       maxLines: null,
       expands: true,
+      keyboardType: TextInputType.multiline,
       textAlignVertical: TextAlignVertical.top,
       style: GoogleFonts.inter(
         color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
@@ -1283,9 +1398,9 @@ class _JournalContentState extends State<JournalContent> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildCompactToolbarButton(Icons.format_bold, _applyBoldFormatting),
-              _buildCompactToolbarButton(Icons.format_italic, _applyItalicFormatting),
-              _buildCompactToolbarButton(Icons.format_underlined, _applyUnderlineFormatting),
+              _buildCompactToolbarButton(Icons.format_bold, _applyBoldFormatting, isActive: _isBold),
+              _buildCompactToolbarButton(Icons.format_italic, _applyItalicFormatting, isActive: _isItalic),
+              _buildCompactToolbarButton(Icons.format_underlined, _applyUnderlineFormatting, isActive: _isUnderline),
               _buildCompactToolbarButton(Icons.format_list_bulleted, _applyListFormatting),
             ],
           ),
@@ -1314,22 +1429,32 @@ class _JournalContentState extends State<JournalContent> {
     IconData icon,
     VoidCallback onTap, {
     Color? color,
+    bool isActive = false,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 32,
-        height: 32,
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? Colors.black.withOpacity(0.2)
-              : const Color(0xFFF3F4F6),
-          borderRadius: BorderRadius.circular(6),
+          color: isActive 
+              ? (Theme.of(context).brightness == Brightness.dark
+                  ? Colors.blue.withOpacity(0.3)
+                  : Colors.blue.withOpacity(0.2))
+              : (Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white.withOpacity(0.1)
+                  : Colors.black.withOpacity(0.05)),
+          borderRadius: BorderRadius.circular(8),
+          border: isActive 
+              ? Border.all(color: Colors.blue.withOpacity(0.5), width: 1.5)
+              : null,
         ),
         child: Icon(
           icon,
           size: 18,
-          color: color ?? Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+          color: isActive 
+              ? Colors.blue
+              : (color ?? Theme.of(context).colorScheme.onSurface),
         ),
       ),
     );
@@ -1384,6 +1509,7 @@ class _JournalContentState extends State<JournalContent> {
   void dispose() {
     _titleController.dispose();
     _contentController.dispose();
+    _contentFocusNode.dispose();
     super.dispose();
   }
 }

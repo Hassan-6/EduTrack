@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/course_model.dart';
 import '../services/firebase_service.dart';
+import '../services/notification_service.dart';
 
 class PresentQuestionScreen extends StatefulWidget {
   final Course course;
@@ -76,6 +77,25 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
         options: options,
         correctAnswerIndex: _hasCorrectAnswer ? _correctAnswerIndex : null,
       );
+
+      // Get instructor name and enrolled students
+      final instructorProfile = await FirebaseService.getUserProfile(instructorId);
+      final instructorName = instructorProfile?['name'] ?? 'Instructor';
+      
+      final courseDoc = await FirebaseService.getCourseById(widget.course.id);
+      final List<String> enrolledStudents = 
+          List<String>.from(courseDoc?['enrolledStudents'] ?? []);
+
+      // Notify all enrolled students (excluding the instructor if they're in the list)
+      final studentsToNotify = enrolledStudents.where((id) => id != instructorId).toList();
+      
+      if (studentsToNotify.isNotEmpty) {
+        await NotificationService().notifyQuestionPresented(
+          studentIds: studentsToNotify,
+          courseName: widget.course.name,
+          instructorName: instructorName,
+        );
+      }
 
       Navigator.pop(context); // Close loading
 

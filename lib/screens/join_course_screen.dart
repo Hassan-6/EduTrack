@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../utils/theme_provider.dart';
 import '../services/auth_provider.dart';
 import '../services/firebase_service.dart';
+import '../services/notification_service.dart';
 
 class JoinCourseScreen extends StatefulWidget {
   const JoinCourseScreen({super.key});
@@ -111,6 +112,18 @@ class _JoinCourseScreenState extends State<JoinCourseScreen> {
         _foundCourse!['id'],
         userId,
         studentData,
+      );
+
+      // Notify the instructor about the enrollment request
+      final instructorId = _foundCourse!['instructorId'];
+      final courseName = _foundCourse!['title'] ?? 'Course';
+      final studentName = studentData['studentName'] as String;
+      
+      await NotificationService().notifyEnrollmentRequest(
+        instructorId: instructorId,
+        studentName: studentName,
+        courseName: courseName,
+        courseId: _foundCourse!['id'],
       );
 
       if (mounted) {

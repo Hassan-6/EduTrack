@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../services/firebase_service.dart';
 import '../services/auth_provider.dart';
+import '../services/notification_service.dart';
 import '../utils/theme_provider.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/profile_avatar.dart';
@@ -296,7 +297,7 @@ class _QAWallScreenState extends State<QAWallScreen> {
     );
   }
 
-  void _showReplyDialog(String questionId, String courseId) {
+  void _showReplyDialog(String questionId, String courseId, String questionAuthorId, String questionTitle) {
     final replyController = TextEditingController();
 
     showDialog(
@@ -341,6 +342,19 @@ class _QAWallScreenState extends State<QAWallScreen> {
                 authorId: _userId,
                 content: replyController.text.trim(),
               );
+              
+              // Send notification if not replying to own question
+              if (questionAuthorId != _userId) {
+                final userProfile = await FirebaseService.getUserProfile(_userId);
+                final responderName = userProfile?['name'] ?? 'Someone';
+                
+                await NotificationService().notifyQnaResponse(
+                  postOwnerId: questionAuthorId,
+                  questionTitle: questionTitle,
+                  responderName: responderName,
+                  postId: questionId,
+                );
+              }
               
               await _loadQuestions();
               
@@ -677,7 +691,12 @@ class _QAWallScreenState extends State<QAWallScreen> {
                         ),
                         const Spacer(),
                         TextButton.icon(
-                          onPressed: () => _showReplyDialog(question['id'], courseId),
+                          onPressed: () => _showReplyDialog(
+                            question['id'],
+                            courseId,
+                            question['authorId'] ?? '',
+                            question['title'] ?? 'Question',
+                          ),
                           icon: const Icon(Icons.reply, size: 16),
                           label: Text('Reply (${replies.length})', style: GoogleFonts.inter(fontSize: 13)),
                         ),

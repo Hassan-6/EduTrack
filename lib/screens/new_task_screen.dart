@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../utils/theme_provider.dart';
 import '../services/task_service.dart';
 import '../services/firebase_service.dart';
+import '../services/notification_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class NewTaskScreen extends StatefulWidget {
@@ -104,12 +105,29 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
         _dueTime.minute,
       );
 
-      await TaskService.createTask(
+      final taskId = await TaskService.createTask(
         title: _titleController.text,
         description: _descriptionController.text,
         category: _selectedCategory,
         dueDate: dueDateTime,
       );
+
+      // Schedule notification reminder
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        try {
+          await NotificationService().scheduleTaskReminder(
+            taskId: taskId,
+            taskTitle: _titleController.text,
+            taskDescription: _descriptionController.text,
+            dueDate: dueDateTime,
+            userId: user.uid,
+          );
+        } catch (e) {
+          print('Warning: Failed to schedule notification: $e');
+          // Don't block task creation if notification fails
+        }
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

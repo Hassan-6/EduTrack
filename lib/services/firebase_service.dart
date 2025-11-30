@@ -175,8 +175,28 @@ class FirebaseService {
 
   static Future<void> deleteUserData(String userId) async {
     try {
-      // Delete user document from Firestore
-      await _firebaseFirestore.collection('users').doc(userId).delete();
+      // Get user document first to retrieve name and other info
+      final userDoc = await _firebaseFirestore
+          .collection('users')
+          .doc(userId)
+          .get();
+      
+      if (!userDoc.exists) {
+        print('User document not found');
+        return;
+      }
+
+      final userData = userDoc.data();
+      final userName = userData?['name'] ?? 'Deleted User';
+
+      // Mark user as deleted instead of deleting the document
+      await _firebaseFirestore.collection('users').doc(userId).update({
+        'name': 'Deleted User',
+        'isDeleted': true,
+        'deletedAt': FieldValue.serverTimestamp(),
+        'originalName': userName,
+        // Keep other fields for data integrity but mark as deleted
+      });
       
       // Delete user's tasks
       final tasksQuery = await _firebaseFirestore
@@ -188,20 +208,32 @@ class FirebaseService {
         await doc.reference.delete();
       }
       
-      // Delete user's Q&A posts
+      // Mark user's Q&A posts as from deleted user instead of deleting
       final qnaQuery = await _firebaseFirestore
           .collection('qna')
           .where('userId', isEqualTo: userId)
           .get();
       
       for (var doc in qnaQuery.docs) {
-        await doc.reference.delete();
+        await doc.reference.update({
+          'userName': 'Deleted User',
+          'userDeleted': true,
+        });
       }
       
-      // Note: Course enrollments and other related data will need to be handled
-      // based on your specific requirements (e.g., remove user from course enrollments)
+      // Remove user from course enrollments
+      final coursesQuery = await _firebaseFirestore
+          .collection('courses')
+          .where('enrolledStudents', arrayContains: userId)
+          .get();
       
-      print('User data deleted successfully');
+      for (var doc in coursesQuery.docs) {
+        await doc.reference.update({
+          'enrolledStudents': FieldValue.arrayRemove([userId]),
+        });
+      }
+      
+      print('User data marked as deleted successfully');
     } catch (e) {
       print('Error deleting user data: $e');
       rethrow;

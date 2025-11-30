@@ -4,9 +4,11 @@ import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../widgets/notification_bell.dart';
 import '../utils/route_manager.dart';
 import '../services/auth_provider.dart';
 import '../services/task_service.dart';
+import '../services/activity_monitor_service.dart';
 import '../models/task.dart';
 import '../utils/calendar_event.dart';
 
@@ -29,6 +31,22 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     super.initState();
     _loadTodaysTasks();
     _loadUpcomingEvents();
+    _startActivityMonitoring();
+  }
+
+  void _startActivityMonitoring() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      // Start monitoring for student activities
+      ActivityMonitorService().startStudentMonitoring(user.uid);
+    }
+  }
+
+  @override
+  void dispose() {
+    // Clean up monitoring when leaving screen
+    ActivityMonitorService().stopMonitoring();
+    super.dispose();
   }
 
   Future<void> _loadTodaysTasks() async {
@@ -287,6 +305,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   height: 1.6,
                 ),
               ),
+              const Spacer(),
+              buildNotificationBell(context),
             ],
           ),
         ],

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/course_model.dart';
 import '../services/firebase_service.dart';
+import '../services/notification_service.dart';
 
 class ScheduleQuizScreen extends StatefulWidget {
   final Course course;
@@ -159,6 +160,23 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
       );
       
       print('Quiz created with ID: $quizId');
+
+      // Get enrolled students and notify them
+      final courseDoc = await FirebaseService.getCourseById(widget.course.id);
+      final List<String> enrolledStudents = 
+          List<String>.from(courseDoc?['enrolledStudents'] ?? []);
+
+      // Notify all enrolled students (excluding the instructor if they're in the list)
+      final studentsToNotify = enrolledStudents.where((id) => id != instructorId).toList();
+      
+      if (studentsToNotify.isNotEmpty) {
+        await NotificationService().notifyQuizScheduled(
+          studentIds: studentsToNotify,
+          courseName: widget.course.name,
+          quizTitle: _quizTitleController.text,
+          quizDate: scheduledDateTime,
+        );
+      }
 
       Navigator.pop(context); // Close loading
       ScaffoldMessenger.of(context).showSnackBar(

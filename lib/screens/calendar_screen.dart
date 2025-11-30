@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'new_entry_screen.dart';
 import '../utils/theme_provider.dart';
 import '../utils/calendar_event.dart';
+import '../services/calendar_sync_service.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -125,7 +126,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         final userId = FirebaseAuth.instance.currentUser?.uid;
         if (userId == null) throw Exception('User not authenticated');
 
-        await FirebaseFirestore.instance
+        final docRef = await FirebaseFirestore.instance
             .collection('users')
             .doc(userId)
             .collection('calendar_events')
@@ -139,6 +140,63 @@ class _CalendarScreenState extends State<CalendarScreen> {
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         });
+
+        // Sync to device calendar if enabled
+        final syncService = CalendarSyncService();
+        final syncEnabled = await syncService.isSyncEnabled();
+        
+        if (syncEnabled) {
+          // Parse times for device calendar
+          DateTime startDateTime = result.date;
+          DateTime endDateTime = result.date;
+          
+          if (result.startTime != 'All Day' && result.startTime.isNotEmpty) {
+            final startParts = result.startTime.split(':');
+            if (startParts.length == 2) {
+              final hour = int.tryParse(startParts[0].trim()) ?? 0;
+              final minute = int.tryParse(startParts[1].trim()) ?? 0;
+              startDateTime = DateTime(
+                result.date.year,
+                result.date.month,
+                result.date.day,
+                hour,
+                minute,
+              );
+            }
+          }
+          
+          if (result.endTime.isNotEmpty && result.endTime != 'All Day') {
+            final endParts = result.endTime.split(':');
+            if (endParts.length == 2) {
+              final hour = int.tryParse(endParts[0].trim()) ?? 0;
+              final minute = int.tryParse(endParts[1].trim()) ?? 0;
+              endDateTime = DateTime(
+                result.date.year,
+                result.date.month,
+                result.date.day,
+                hour,
+                minute,
+              );
+            }
+          } else {
+            // All day event - set end to 11:59 PM
+            endDateTime = DateTime(
+              result.date.year,
+              result.date.month,
+              result.date.day,
+              23,
+              59,
+            );
+          }
+
+          await syncService.syncEventToDevice(
+            eventId: docRef.id,
+            title: result.title,
+            description: result.description,
+            startDate: startDateTime,
+            endDate: endDateTime,
+          );
+        }
 
         await _loadEvents();
 

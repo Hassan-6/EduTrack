@@ -45,5 +45,12 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
+	<key>NSCalendarsUsageDescription</key>
+	<string>EduTrack needs access to your calendar to sync events and reminders.</string>
 </dict>
 </plist>

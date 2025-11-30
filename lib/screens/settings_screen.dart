@@ -1,9 +1,10 @@
-// lib/screens/settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/theme_provider.dart';
 import '../services/firebase_service.dart';
+import '../services/calendar_sync_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -15,12 +16,12 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   String _selectedTheme = 'System';
-  String _selectedReminderFrequency = 'Daily';
+  String _selectedReminderFrequency = '1 Day';
   bool _notificationsEnabled = true;
   bool _calendarSyncEnabled = false;
 
   final List<String> _themeOptions = ['Light', 'Dark', 'System'];
-  final List<String> _reminderOptions = ['Hourly', '4 Hours', '8 Hours', 'Daily', '3 Days', '5 Days', 'Weekly'];
+  final List<String> _reminderOptions = ['1 Hour', '4 Hours', '8 Hours', '1 Day', '3 Days', '5 Days', '7 Days'];
 
   // Available accent colors - expanded list with softer colors
   final List<Color> _accentColors = [
@@ -46,6 +47,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _initializeTheme();
+    _loadPreferences();
   }
 
   void _initializeTheme() {
@@ -57,6 +59,78 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ? 'Dark'
               : 'System';
     });
+  }
+
+  Future<void> _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _selectedReminderFrequency = prefs.getString('reminderFrequency') ?? '1 Day';
+      _notificationsEnabled = prefs.getBool('notificationsEnabled') ?? true;
+      _calendarSyncEnabled = prefs.getBool('calendarSyncEnabled') ?? false;
+    });
+  }
+
+  Future<void> _saveReminderFrequency(String frequency) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('reminderFrequency', frequency);
+  }
+
+  Future<void> _saveNotificationsEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('notificationsEnabled', enabled);
+  }
+
+  Future<void> _saveCalendarSyncEnabled(bool enabled) async {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(
+            Theme.of(context).primaryColor,
+          ),
+        ),
+      ),
+    );
+
+    try {
+      // Toggle calendar sync service
+      await CalendarSyncService().toggleSync(enabled);
+      
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              enabled
+                  ? 'Calendar sync enabled. Events will be synced to your device calendar.'
+                  : 'Calendar sync disabled. Synced events have been removed.',
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        
+        // Revert the toggle on error
+        setState(() {
+          _calendarSyncEnabled = !enabled;
+        });
+      }
+    }
   }
 
   // In your settings screen, just update the theme change handlers:
@@ -91,238 +165,145 @@ class _SettingsScreenState extends State<SettingsScreen> {
     themeProvider.setSecondaryColor(color);
   }
 
-  Future<void> _showChangePasswordDialog() async {
-    final TextEditingController currentPasswordController = TextEditingController();
-    final TextEditingController newPasswordController = TextEditingController();
-    final TextEditingController confirmPasswordController = TextEditingController();
-    bool obscureCurrentPassword = true;
-    bool obscureNewPassword = true;
-    bool obscureConfirmPassword = true;
+  Future<void> _showPasswordResetDialog() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.email == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No user logged in'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Capture theme values
+    final primaryColor = Theme.of(context).primaryColor;
+    final cardColor = Theme.of(context).cardColor;
+    final onBackgroundColor = Theme.of(context).colorScheme.onBackground;
+    final onSurfaceColor = Theme.of(context).colorScheme.onSurface;
 
     await showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          backgroundColor: Theme.of(context).cardColor,
-          title: Text(
-            'Change Password',
-            style: GoogleFonts.poppins(
-              color: Theme.of(context).colorScheme.onBackground,
-              fontWeight: FontWeight.w600,
-            ),
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: cardColor,
+        title: Text(
+          'Reset Password',
+          style: GoogleFonts.poppins(
+            color: onBackgroundColor,
+            fontWeight: FontWeight.w600,
           ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: currentPasswordController,
-                  obscureText: obscureCurrentPassword,
-                  style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
-                  decoration: InputDecoration(
-                    labelText: 'Current Password',
-                    labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Theme.of(context).dividerColor),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Theme.of(context).primaryColor),
-                    ),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        obscureCurrentPassword ? Icons.visibility_off : Icons.visibility,
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          obscureCurrentPassword = !obscureCurrentPassword;
-                        });
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: newPasswordController,
-                  obscureText: obscureNewPassword,
-                  style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
-                  decoration: InputDecoration(
-                    labelText: 'New Password',
-                    labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Theme.of(context).dividerColor),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Theme.of(context).primaryColor),
-                    ),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        obscureNewPassword ? Icons.visibility_off : Icons.visibility,
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          obscureNewPassword = !obscureNewPassword;
-                        });
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: confirmPasswordController,
-                  obscureText: obscureConfirmPassword,
-                  style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
-                  decoration: InputDecoration(
-                    labelText: 'Confirm New Password',
-                    labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Theme.of(context).dividerColor),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Theme.of(context).primaryColor),
-                    ),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          obscureConfirmPassword = !obscureConfirmPassword;
-                        });
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                'Cancel',
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'A password reset link will be sent to:',
+              style: GoogleFonts.inter(
+                color: onSurfaceColor,
+                fontSize: 14,
               ),
             ),
-            TextButton(
-              onPressed: () async {
-                // Validate inputs
-                if (currentPasswordController.text.isEmpty ||
-                    newPasswordController.text.isEmpty ||
-                    confirmPasswordController.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please fill in all fields'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  return;
-                }
-
-                if (newPasswordController.text != confirmPasswordController.text) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('New passwords do not match'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  return;
-                }
-
-                if (newPasswordController.text.length < 6) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Password must be at least 6 characters'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  return;
-                }
-
-                try {
-                  // Get current user
-                  final user = FirebaseAuth.instance.currentUser;
-                  if (user == null || user.email == null) {
-                    throw Exception('No user logged in');
-                  }
-
-                  // Reauthenticate user with current password
-                  final credential = EmailAuthProvider.credential(
-                    email: user.email!,
-                    password: currentPasswordController.text,
-                  );
-
-                  await user.reauthenticateWithCredential(credential);
-
-                  // Update password
-                  await user.updatePassword(newPasswordController.text);
-
-                  Navigator.pop(context);
-                  
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Password changed successfully!'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  }
-                } on FirebaseAuthException catch (e) {
-                  String errorMessage = 'Failed to change password';
-                  
-                  if (e.code == 'wrong-password') {
-                    errorMessage = 'Current password is incorrect';
-                  } else if (e.code == 'weak-password') {
-                    errorMessage = 'New password is too weak';
-                  } else if (e.code == 'requires-recent-login') {
-                    errorMessage = 'Please log out and log in again before changing password';
-                  }
-
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(errorMessage),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Error: ${e.toString()}'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                }
-              },
-              child: Text(
-                'Change Password',
-                style: TextStyle(color: Theme.of(context).primaryColor),
+            const SizedBox(height: 8),
+            Text(
+              user.email!,
+              style: GoogleFonts.inter(
+                color: primaryColor,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Click the link in the email to set a new password.',
+              style: GoogleFonts.inter(
+                color: onSurfaceColor.withOpacity(0.7),
+                fontSize: 13,
               ),
             ),
           ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: onSurfaceColor.withOpacity(0.7)),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              try {
+                await FirebaseAuth.instance.sendPasswordResetEmail(
+                  email: user.email!,
+                );
+                
+                Navigator.pop(dialogContext);
+                
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  SnackBar(
+                    content: Text('Password reset email sent to ${user.email}'),
+                    backgroundColor: Colors.green,
+                    duration: const Duration(seconds: 4),
+                  ),
+                );
+              } on FirebaseAuthException catch (e) {
+                String errorMessage = 'Failed to send reset email';
+                
+                if (e.code == 'user-not-found') {
+                  errorMessage = 'No user found with this email';
+                } else if (e.code == 'invalid-email') {
+                  errorMessage = 'Invalid email address';
+                } else if (e.code == 'too-many-requests') {
+                  errorMessage = 'Too many requests. Please try again later.';
+                }
+                
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  SnackBar(
+                    content: Text(errorMessage),
+                    backgroundColor: Colors.red,
+                    duration: const Duration(seconds: 4),
+                  ),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  SnackBar(
+                    content: Text('Error: ${e.toString()}'),
+                    backgroundColor: Colors.red,
+                    duration: const Duration(seconds: 4),
+                  ),
+                );
+              }
+            },
+            child: Text(
+              'Send Reset Link',
+              style: TextStyle(color: primaryColor),
+            ),
+          ),
+        ],
       ),
     );
-
-    currentPasswordController.dispose();
-    newPasswordController.dispose();
-    confirmPasswordController.dispose();
   }
+
+
 
   Future<void> _showDeleteAccountDialog() async {
     final TextEditingController passwordController = TextEditingController();
     bool obscurePassword = true;
 
+    // Capture all theme values before showing dialog
+    final cardColor = Theme.of(context).cardColor;
+    final onSurfaceColor = Theme.of(context).colorScheme.onSurface;
+    final onBackgroundColor = Theme.of(context).colorScheme.onBackground;
+    final dividerColor = Theme.of(context).dividerColor;
+
     await showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          backgroundColor: Theme.of(context).cardColor,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (builderContext, setStateDialog) => AlertDialog(
+          backgroundColor: cardColor,
           title: Row(
             children: [
               const Icon(Icons.warning, color: Color(0xFFEF4444)),
@@ -346,7 +327,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Text(
                   'This action cannot be undone. All your data will be permanently deleted.',
                   style: GoogleFonts.inter(
-                    color: Theme.of(context).colorScheme.onSurface,
+                    color: onSurfaceColor,
                     fontSize: 14,
                   ),
                 ),
@@ -354,7 +335,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Text(
                   'Please enter your password to confirm:',
                   style: GoogleFonts.inter(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                    color: onSurfaceColor.withOpacity(0.7),
                     fontSize: 13,
                   ),
                 ),
@@ -362,12 +343,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 TextField(
                   controller: passwordController,
                   obscureText: obscurePassword,
-                  style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
+                  style: TextStyle(color: onBackgroundColor),
                   decoration: InputDecoration(
                     labelText: 'Password',
-                    labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+                    labelStyle: TextStyle(color: onSurfaceColor.withOpacity(0.7)),
                     enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Theme.of(context).dividerColor),
+                      borderSide: BorderSide(color: dividerColor),
                     ),
                     focusedBorder: const OutlineInputBorder(
                       borderSide: BorderSide(color: Color(0xFFEF4444)),
@@ -375,10 +356,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     suffixIcon: IconButton(
                       icon: Icon(
                         obscurePassword ? Icons.visibility_off : Icons.visibility,
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                        color: onSurfaceColor.withOpacity(0.7),
                       ),
                       onPressed: () {
-                        setState(() {
+                        setStateDialog(() {
                           obscurePassword = !obscurePassword;
                         });
                       },
@@ -390,16 +371,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                passwordController.dispose();
+                Navigator.pop(dialogContext);
+              },
               child: Text(
                 'Cancel',
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+                style: TextStyle(color: onSurfaceColor.withOpacity(0.7)),
               ),
             ),
             TextButton(
               onPressed: () async {
                 if (passwordController.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
                     const SnackBar(
                       content: Text('Please enter your password'),
                       backgroundColor: Colors.red,
@@ -415,13 +399,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     throw Exception('No user logged in');
                   }
 
-                  // Reauthenticate user
-                  final credential = EmailAuthProvider.credential(
+                  // Try to sign in first to verify credentials
+                  await FirebaseAuth.instance.signInWithEmailAndPassword(
                     email: user.email!,
-                    password: passwordController.text,
+                    password: passwordController.text.trim(),
                   );
-
-                  await user.reauthenticateWithCredential(credential);
 
                   // Delete user data from Firestore
                   await FirebaseService.deleteUserData(user.uid);
@@ -429,10 +411,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   // Delete authentication account
                   await user.delete();
 
+                  // Dispose controller
+                  passwordController.dispose();
+
                   // Navigate to registration screen
-                  if (mounted) {
-                    Navigator.pushNamedAndRemoveUntil(
-                      context,
+                  if (context.mounted) {
+                    Navigator.of(context).pushNamedAndRemoveUntil(
                       '/registration',
                       (route) => false,
                     );
@@ -447,30 +431,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 } on FirebaseAuthException catch (e) {
                   String errorMessage = 'Failed to delete account';
                   
-                  if (e.code == 'wrong-password') {
+                  if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
                     errorMessage = 'Incorrect password';
                   } else if (e.code == 'requires-recent-login') {
                     errorMessage = 'Please log out and log in again before deleting account';
+                  } else if (e.code == 'user-not-found') {
+                    errorMessage = 'User account not found';
+                  } else if (e.code == 'too-many-requests') {
+                    errorMessage = 'Too many requests. Please try again later.';
                   }
 
-                  Navigator.pop(context);
-                  
-                  if (mounted) {
+                  if (context.mounted) {
+                    Navigator.pop(dialogContext);
+                    
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(errorMessage),
                         backgroundColor: Colors.red,
+                        duration: const Duration(seconds: 4),
                       ),
                     );
                   }
                 } catch (e) {
-                  Navigator.pop(context);
-                  
-                  if (mounted) {
+                  if (context.mounted) {
+                    Navigator.pop(dialogContext);
+                    
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('Error: ${e.toString()}'),
                         backgroundColor: Colors.red,
+                        duration: const Duration(seconds: 4),
                       ),
                     );
                   }
@@ -714,6 +704,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     setState(() {
                       _notificationsEnabled = value;
                     });
+                    _saveNotificationsEnabled(value);
                   },
                 ),
               ),
@@ -729,6 +720,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     setState(() {
                       _calendarSyncEnabled = value;
                     });
+                    _saveCalendarSyncEnabled(value);
                   },
                 ),
               ),
@@ -745,6 +737,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     setState(() {
                       _selectedReminderFrequency = newValue!;
                     });
+                    _saveReminderFrequency(newValue!);
                   },
                   width: 100,
                 ),
@@ -780,13 +773,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           child: Column(
             children: [
-              // Change Password
+              // Change Password (via Reset Link)
               GestureDetector(
-                onTap: _showChangePasswordDialog,
+                onTap: _showPasswordResetDialog,
                 child: _buildSettingsRow(
                   icon: Icons.lock_outline,
                   iconColor: Theme.of(context).primaryColor.withOpacity(0.1),
-                  title: 'Change Password',
+                  title: 'Reset Password',
                   trailing: _buildNavigationArrow(),
                 ),
               ),

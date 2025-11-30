@@ -1,6 +1,7 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'screens/main_menu_screen.dart';
 import 'screens/ins_main_menu_screen.dart';
 import 'screens/registration_screen.dart';
@@ -24,16 +25,30 @@ import 'screens/new_task_screen.dart';
 import 'screens/present_question_screen.dart';
 import 'screens/question_results_screen.dart';
 import 'screens/schedule_quiz_screen.dart';
+import 'screens/notifications_screen.dart';
 import 'widgets/course_model.dart';
 import 'utils/theme_provider.dart';
 import 'utils/route_manager.dart';
 import 'services/firebase_service.dart';
 import 'services/auth_provider.dart';
+import 'services/notification_service.dart';
+
+// Background message handler (must be top-level function)
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  print('Handling background message: ${message.messageId}');
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     await FirebaseService.initialize();
+    
+    // Initialize notification service
+    await NotificationService().initialize();
+    
+    // Set up background message handler
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   } catch (e) {
     print('Failed to initialize Firebase: $e');
   }
@@ -95,6 +110,7 @@ class MyApp extends StatelessWidget {
                     ModalRoute.of(context)!.settings.arguments as UserProfile,
               ),
               '/settings': (context) => const SettingsScreen(),
+              '/notifications': (context) => const NotificationsScreen(),
               // Note: These routes are deprecated. Use MaterialPageRoute from course_detail_screen instead.
               // '/popup_question': (context) {
               //   final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
