@@ -203,12 +203,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         content: SizedBox(
           width: double.maxFinite,
+          height: 400,
           child: GridView.builder(
             shrinkWrap: true,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 4,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
+              childAspectRatio: 0.85,
             ),
             itemCount: ProfileIcons.icons.length,
             itemBuilder: (context, index) {

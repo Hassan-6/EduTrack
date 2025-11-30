@@ -516,100 +516,82 @@ class _JournalScreenState extends State<JournalScreen> {
   }
 
   Widget _buildJournalEntry(JournalEntry entry) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Title
-            TextField(
-              controller: _titleController,
-              onChanged: (value) {
-                entry.title = value;
-              },
-              style: GoogleFonts.inter(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-              ),
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                hintText: 'Entry Title',
-                hintStyle: GoogleFonts.inter(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                ),
-                contentPadding: EdgeInsets.zero,
-              ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: constraints.maxHeight - 48,
             ),
-            
-            const SizedBox(height: 16),
-            
-            // Divider
-            Container(
-              height: 1,
-              color: const Color(0xFFE5E7EB),
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // Content
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: 200,
-                maxHeight: MediaQuery.of(context).size.height * 0.4,
-              ),
-              child: TextField(
-                controller: _contentController,
-                focusNode: _contentFocusNode,
-                onChanged: (value) {
-                  entry.content = value;
-                },
-                maxLines: null,
-                keyboardType: TextInputType.multiline,
-                textAlignVertical: TextAlignVertical.top,
-                style: GoogleFonts.inter(
-                  color: const Color(0xFF4B5563),
-                  fontSize: 16,
-                  height: 1.6,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Title
+                TextField(
+                  controller: _titleController,
+                  onChanged: (value) {
+                    entry.title = value;
+                  },
+                  style: GoogleFonts.inter(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    hintText: 'Entry Title',
+                    hintStyle: GoogleFonts.inter(
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    contentPadding: EdgeInsets.zero,
+                  ),
                 ),
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  hintText: 'Start writing...',
-                  hintStyle: GoogleFonts.inter(
-                    color: const Color(0xFF4B5563).withOpacity(0.4),
+                
+                const SizedBox(height: 16),
+                
+                // Divider
+                Container(
+                  height: 1,
+                  color: const Color(0xFFE5E7EB),
+                ),
+                
+                const SizedBox(height: 16),
+                
+                // Content
+                TextField(
+                  controller: _contentController,
+                  focusNode: _contentFocusNode,
+                  onChanged: (value) {
+                    entry.content = value;
+                  },
+                  maxLines: null,
+                  keyboardType: TextInputType.multiline,
+                  textAlignVertical: TextAlignVertical.top,
+                  style: GoogleFonts.inter(
+                    color: const Color(0xFF4B5563),
                     fontSize: 16,
                     height: 1.6,
                   ),
-                  contentPadding: EdgeInsets.zero,
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    hintText: 'Start writing...',
+                    hintStyle: GoogleFonts.inter(
+                      color: const Color(0xFF4B5563).withOpacity(0.4),
+                      fontSize: 16,
+                      height: 1.6,
+                    ),
+                    contentPadding: EdgeInsets.zero,
+                  ),
                 ),
-              ),
+              ],
             ),
-            
-            const SizedBox(height: 16),
-            
-            // Divider
-            Container(
-              height: 1,
-              color: const Color(0xFFE5E7EB),
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // Created Date
-            Text(
-              'Created: ${_formatDate(entry.createdAt)}',
-              style: GoogleFonts.inter(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -619,54 +601,60 @@ class _JournalScreenState extends State<JournalScreen> {
     final currentEntry = _journalEntries[_currentPage];
     
     return Container(
-      height: 100,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: const Color(0xFFE5E7EB))),
       ),
-      child: Column(
-        children: [
-          // Formatting Tools
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              // Bold
-              _buildToolbarButton(Icons.format_bold, _applyBold, tooltip: 'Bold', isActive: _isBold),
-              
-              // Italic
-              _buildToolbarButton(Icons.format_italic, _applyItalic, tooltip: 'Italic', isActive: _isItalic),
-              
-              // Underline
-              _buildToolbarButton(Icons.format_underlined, _applyUnderline, tooltip: 'Underline', isActive: _isUnderline),
-              
-              // List
-              _buildToolbarButton(Icons.format_list_bulleted, _applyBulletList, tooltip: 'Bullet List'),
-              
-              // Favorite
-              _buildToolbarButton(
-                currentEntry.isFavorited ? Icons.favorite : Icons.favorite_border,
-                () => _toggleFavorite(_currentPage),
-                color: currentEntry.isFavorited ? Colors.red : null,
-                tooltip: 'Favorite',
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Formatting Tools
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  // Bold
+                  _buildToolbarButton(Icons.format_bold, _applyBold, tooltip: 'Bold', isActive: _isBold),
+                  
+                  // Italic
+                  _buildToolbarButton(Icons.format_italic, _applyItalic, tooltip: 'Italic', isActive: _isItalic),
+                  
+                  // Underline
+                  _buildToolbarButton(Icons.format_underlined, _applyUnderline, tooltip: 'Underline', isActive: _isUnderline),
+                  
+                  // List
+                  _buildToolbarButton(Icons.format_list_bulleted, _applyBulletList, tooltip: 'Bullet List'),
+                  
+                  // Favorite
+                  _buildToolbarButton(
+                    currentEntry.isFavorited ? Icons.favorite : Icons.favorite_border,
+                    () => _toggleFavorite(_currentPage),
+                    color: currentEntry.isFavorited ? Colors.red : null,
+                    tooltip: 'Favorite',
+                  ),
+                  
+                  // Delete
+                  _buildToolbarButton(Icons.delete, () => _deleteEntry(_currentPage), tooltip: 'Delete'),
+                ],
               ),
-              
-              // Delete
-              _buildToolbarButton(Icons.delete, () => _deleteEntry(_currentPage), tooltip: 'Delete'),
-            ],
-          ),
-          
-          const SizedBox(height: 8),
-          
-          // Timestamp
-          Text(
-            'Last edited: ${_formatDate(DateTime.now())}',
-            style: GoogleFonts.inter(
-              color: Theme.of(context).hintColor,
-              fontSize: 11,
             ),
-          ),
-        ],
+            
+            const SizedBox(height: 8),
+            
+            // Timestamp
+            Text(
+              'Last edited: ${_formatDate(DateTime.now())}',
+              style: GoogleFonts.inter(
+                color: Theme.of(context).hintColor,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

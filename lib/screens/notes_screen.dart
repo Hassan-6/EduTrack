@@ -1327,56 +1327,69 @@ class _JournalContentState extends State<JournalContent> {
     final entry = _displayedEntries[_currentPage];
     final actualIndex = _journalEntries.indexOf(entry);
 
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            controller: _titleController,
-            onChanged: (value) => _saveChanges(),
-            style: GoogleFonts.inter(
-              color: Theme.of(context).colorScheme.onBackground,
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              height: 1.2,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: constraints.maxHeight - 32,
             ),
-            decoration: InputDecoration(
-              border: InputBorder.none,
-              hintText: 'Journal Entry Title',
-              hintStyle: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-              ),
-              contentPadding: EdgeInsets.zero,
-              isDense: true,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: _titleController,
+                  onChanged: (value) => _saveChanges(),
+                  style: GoogleFonts.inter(
+                    color: Theme.of(context).colorScheme.onBackground,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                  ),
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    hintText: 'Journal Entry Title',
+                    hintStyle: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                    ),
+                    contentPadding: EdgeInsets.zero,
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  height: 1,
+                  color: Theme.of(context).dividerColor,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _contentController,
+                  focusNode: _contentFocusNode,
+                  onChanged: (value) => _saveChanges(),
+                  maxLines: null,
+                  keyboardType: TextInputType.multiline,
+                  textAlignVertical: TextAlignVertical.top,
+                  style: GoogleFonts.inter(
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                    fontSize: 14,
+                    height: 1.4,
+                  ),
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    hintText: 'Start writing your journal entry...',
+                    hintStyle: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                    ),
+                    contentPadding: EdgeInsets.zero,
+                    isDense: true,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
-          Container(
-            height: 1,
-            color: Theme.of(context).dividerColor,
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: _buildStyledContentField(),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            height: 1,
-            color: Theme.of(context).dividerColor,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Entry ${actualIndex + 1} of ${_journalEntries.length} • ${_formatDate(entry.updatedAt)}',
-            style: GoogleFonts.inter(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-              fontSize: 10,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

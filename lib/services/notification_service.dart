@@ -499,10 +499,24 @@ class NotificationService {
       return;
     }
     
-    // Note: Cannot create Firestore notification for another user due to security rules
-    // This would require Cloud Functions to create notifications server-side
-    // For now, log the notification attempt
-    print('QnA response notification: $responderName responded to "$questionTitle" for user $postOwnerId');
+    try {
+      // Create notification in Firestore for the question owner
+      await createNotification(
+        userId: postOwnerId,
+        type: NotificationType.qnaResponse,
+        title: 'New Reply to Your Question',
+        body: '$responderName replied to "$questionTitle"',
+        data: {
+          'questionId': postId,
+          'responderName': responderName,
+          'questionTitle': questionTitle,
+        },
+      );
+      
+      print('QnA notification created: $responderName replied to "$questionTitle" for user $postOwnerId');
+    } catch (e) {
+      print('Error creating QnA notification: $e');
+    }
   }
 
   // Notify students about presented question

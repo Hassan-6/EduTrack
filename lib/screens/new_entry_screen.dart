@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'calendar_screen.dart';
 import '../utils/theme_provider.dart';
 import '../utils/calendar_event.dart';
+import '../services/notification_service.dart';
 
 class AddEntryScreen extends StatefulWidget {
   const AddEntryScreen({super.key});
@@ -72,7 +74,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     }
   }
 
-  void _createEntry() {
+  void _createEntry() async {
     if (_titleController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a title')),
@@ -90,6 +92,32 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       type: _selectedEventType,
       color: _getEventColor(_selectedEventType),
     );
+
+    // Schedule calendar reminder notification
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId != null && !_isAllDay) {
+      try {
+        // Create DateTime for the event
+        final eventDateTime = DateTime(
+          _selectedDate.year,
+          _selectedDate.month,
+          _selectedDate.day,
+          _startTime.hour,
+          _startTime.minute,
+        );
+        
+        await NotificationService().scheduleCalendarReminder(
+          eventId: event.id,
+          eventTitle: _titleController.text,
+          eventDate: eventDateTime,
+          userId: userId,
+        );
+        
+        print('Calendar reminder scheduled for: ${_titleController.text}');
+      } catch (e) {
+        print('Error scheduling calendar reminder: $e');
+      }
+    }
 
     Navigator.pop(context, event);
   }

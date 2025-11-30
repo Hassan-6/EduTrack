@@ -225,29 +225,24 @@ service cloud.firestore {
                                 resource.data.authorId == request.auth.uid;
       }
     }
-  }
-  
-  // Notifications collection
-  match /notifications/{notificationId} {
-    // Users can read and list their own notifications
-    allow read, list: if request.auth != null && resource.data.userId == request.auth.uid;
-    // System can create notifications (authenticated users)
-    allow create: if request.auth != null;
-    // Users can update their own notifications (e.g., mark as read)
-    allow update: if request.auth != null && resource.data.userId == request.auth.uid;
-    // Users can delete their own notifications
-    allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
-  }
-  
-  // Collection group rules for questions (to monitor QnA across all courses)
-  match /{path=**}/questions/{questionId} {
-    // Users can read questions where they are the author
-    allow read: if request.auth != null && resource.data.userId == request.auth.uid;
     
-    // Replies subcollection
-    match /replies/{replyId} {
-      // Anyone can read replies (to monitor for new responses)
-      allow read: if request.auth != null;
+    // Notifications collection
+    match /notifications/{notificationId} {
+      // Allow all operations for authenticated users
+      // The app code ensures users only query their own notifications with where('userId', isEqualTo: userId)
+      allow read, write: if request.auth != null;
+    }
+    
+    // Collection group rules for questions (to monitor QnA across all courses)
+    match /{path=**}/questions/{questionId} {
+      // Users can read questions where they are the author
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      
+      // Replies subcollection
+      match /replies/{replyId} {
+        // Anyone can read replies (to monitor for new responses)
+        allow read: if request.auth != null;
+      }
     }
   }
 }

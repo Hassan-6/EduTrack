@@ -348,6 +348,14 @@ class _QAWallScreenState extends State<QAWallScreen> {
                 final userProfile = await FirebaseService.getUserProfile(_userId);
                 final responderName = userProfile?['name'] ?? 'Someone';
                 
+                // Create notification for question owner
+                await NotificationService().notifyQnaResponse(
+                  postOwnerId: questionAuthorId,
+                  questionTitle: questionTitle,
+                  responderName: responderName,
+                  postId: questionId,
+                );
+                
                 await NotificationService().notifyQnaResponse(
                   postOwnerId: questionAuthorId,
                   questionTitle: questionTitle,

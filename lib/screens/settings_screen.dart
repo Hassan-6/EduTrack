@@ -618,27 +618,103 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               
               // Primary Accent Color
-              _buildSettingsRow(
-                icon: Icons.color_lens_outlined,
-                iconColor: themeProvider.secondaryColor.withOpacity(0.1),
-                title: 'Primary Color',
-                trailing: _buildColorSelector(
-                  selectedColor: themeProvider.primaryColor,
-                  onColorSelected: _handlePrimaryColorChange,
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Theme.of(context).dividerColor),
                 ),
-                height: 80.0,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        // Icon
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: themeProvider.secondaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Center(
+                            child: Icon(
+                              Icons.color_lens_outlined,
+                              size: 18,
+                              color: Theme.of(context).primaryColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        
+                        // Title
+                        const Text(
+                          'Primary Color',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    // Color Selector
+                    _buildColorSelector(
+                      selectedColor: themeProvider.primaryColor,
+                      onColorSelected: _handlePrimaryColorChange,
+                    ),
+                  ],
+                ),
               ),
               
               // Secondary Accent Color
-              _buildSettingsRow(
-                icon: Icons.color_lens_outlined,
-                iconColor: themeProvider.primaryColor.withOpacity(0.1),
-                title: 'Secondary Color',
-                trailing: _buildColorSelector(
-                  selectedColor: themeProvider.secondaryColor,
-                  onColorSelected: _handleSecondaryColorChange,
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Theme.of(context).dividerColor),
                 ),
-                height: 80.0,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        // Icon
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: themeProvider.primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Center(
+                            child: Icon(
+                              Icons.color_lens_outlined,
+                              size: 18,
+                              color: Theme.of(context).primaryColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        
+                        // Title
+                        const Text(
+                          'Secondary Color',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    // Color Selector
+                    _buildColorSelector(
+                      selectedColor: themeProvider.secondaryColor,
+                      onColorSelected: _handleSecondaryColorChange,
+                    ),
+                  ],
+                ),
               ),
               
               // Preview Gradient
@@ -906,10 +982,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required Function(Color) onColorSelected,
   }) {
     return SizedBox(
-      width: 200,
+      width: double.infinity,
       height: 60,
       child: GridView.builder(
         scrollDirection: Axis.horizontal,
+        physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
           mainAxisSpacing: 8,
