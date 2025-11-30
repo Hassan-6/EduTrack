@@ -213,16 +213,6 @@ class _AuthScreenState extends State<AuthScreen> {
     });
   }
 
-  void _skipLogin() {
-    RouteManager.setUserType('student');
-    Navigator.pushReplacementNamed(context, '/main_menu');
-  }
-
-  void _skipInstructorLogin() {
-    RouteManager.setUserType('instructor');
-    Navigator.pushReplacementNamed(context, '/ins_main_menu');
-  }
-
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -278,7 +268,9 @@ class _AuthScreenState extends State<AuthScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(result['error'] ?? 'Login failed. Please check your credentials.'),
+            content: Text(result['error']?.contains('password') == true 
+                ? 'Invalid password. Please try again.'
+                : (result['error'] ?? 'Login failed. Please check your credentials.')),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 4),
           ),
@@ -358,15 +350,20 @@ class _AuthScreenState extends State<AuthScreen> {
     if (value == null || value.isEmpty) {
       return 'Please enter your password';
     }
-    if (value.length < 6) {
-      return 'Password must be at least 6 characters';
+    
+    // Only validate password criteria during signup
+    if (!_isLogin) {
+      if (value.length < 6) {
+        return 'Password must be at least 6 characters';
+      }
+      if (!value.contains(RegExp(r'[A-Z]'))) {
+        return 'Password must contain at least one uppercase letter';
+      }
+      if (!value.contains(RegExp(r'[0-9]'))) {
+        return 'Password must contain at least one number';
+      }
     }
-    if (!value.contains(RegExp(r'[A-Z]'))) {
-      return 'Password must contain at least one uppercase letter';
-    }
-    if (!value.contains(RegExp(r'[0-9]'))) {
-      return 'Password must contain at least one number';
-    }
+    
     return null;
   }
 
@@ -444,9 +441,6 @@ class _AuthScreenState extends State<AuthScreen> {
 
                   _buildActionButtons(themeProvider),
                   const SizedBox(height: 24),
-
-                  _buildSkipLoginButtons(themeProvider),
-                  const SizedBox(height: 16),
 
                   _buildAuthModeSwitch(),
                   const SizedBox(height: 20),
@@ -771,6 +765,38 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
             ),
             const SizedBox(height: 8),
+            // Password criteria tooltip for signup
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outline.withOpacity(0.3),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Password must be at least 6 characters, contain one uppercase letter and one number',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
 
           if (_isLogin) ...[
@@ -845,76 +871,6 @@ class _AuthScreenState extends State<AuthScreen> {
                           ),
                         ),
                 ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSkipLoginButtons(ThemeProvider themeProvider) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        children: [
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: OutlinedButton(
-              onPressed: _skipLogin,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Theme.of(context).primaryColor, // THEME: Dynamic text
-                side: BorderSide(color: Theme.of(context).primaryColor), // THEME: Dynamic border
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                backgroundColor: Colors.transparent,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.school, size: 18, color: Theme.of(context).primaryColor), // THEME: Dynamic icon
-                  const SizedBox(width: 8),
-                  Text(
-                    'Skip to Student App',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: OutlinedButton(
-              onPressed: _skipInstructorLogin,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: themeProvider.secondaryColor, // THEME: Dynamic text
-                side: BorderSide(color: themeProvider.secondaryColor), // THEME: Dynamic border
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                backgroundColor: Colors.transparent,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.person, size: 18, color: themeProvider.secondaryColor), // THEME: Dynamic icon
-                  const SizedBox(width: 8),
-                  Text(
-                    'Skip to Instructor App',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
               ),
             ),
           ),
