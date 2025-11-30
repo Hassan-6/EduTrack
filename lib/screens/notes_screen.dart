@@ -750,11 +750,6 @@ class _JournalContentState extends State<JournalContent> {
   final TextEditingController _contentController = TextEditingController();
   final TextEditingController _titleController = TextEditingController();
   final FocusNode _contentFocusNode = FocusNode();
-  
-  // Formatting states
-  bool _isBold = false;
-  bool _isItalic = false;
-  bool _isUnderline = false;
 
   @override
   void initState() {
@@ -932,191 +927,6 @@ class _JournalContentState extends State<JournalContent> {
         SnackBar(content: Text('Error deleting: $e')),
       );
     }
-  }
-
-  void _applyBoldFormatting() {
-    final selection = _contentController.selection;
-    final text = _contentController.text;
-    
-    if (!selection.isValid) return;
-    
-    if (selection.isCollapsed) {
-      // Toggle state for future typing
-      setState(() {
-        _isBold = !_isBold;
-      });
-      // Insert markers at cursor if activating
-      if (_isBold) {
-        final cursorPos = selection.baseOffset;
-        final newText = text.substring(0, cursorPos) + '**' + text.substring(cursorPos);
-        _contentController.text = newText;
-        _contentController.selection = TextSelection.collapsed(offset: cursorPos + 2);
-      }
-    } else {
-      // Wrap selected text
-      final start = selection.start;
-      final end = selection.end;
-      final selectedText = text.substring(start, end);
-      
-      // Check if already wrapped
-      final beforeStart = start >= 2 ? text.substring(start - 2, start) : '';
-      final afterEnd = end + 2 <= text.length ? text.substring(end, end + 2) : '';
-      
-      String newText;
-      int newCursorPos;
-      
-      if (beforeStart == '**' && afterEnd == '**') {
-        // Remove bold
-        newText = text.substring(0, start - 2) + selectedText + text.substring(end + 2);
-        newCursorPos = start - 2;
-        setState(() {
-          _isBold = false;
-        });
-      } else {
-        // Add bold
-        newText = text.substring(0, start) + '**' + selectedText + '**' + text.substring(end);
-        newCursorPos = end + 4;
-        setState(() {
-          _isBold = true;
-        });
-      }
-      
-      _contentController.text = newText;
-      _contentController.selection = TextSelection.collapsed(offset: newCursorPos);
-    }
-    _saveChanges();
-  }
-
-  void _applyItalicFormatting() {
-    final selection = _contentController.selection;
-    final text = _contentController.text;
-    
-    if (!selection.isValid) return;
-    
-    if (selection.isCollapsed) {
-      // Toggle state for future typing
-      setState(() {
-        _isItalic = !_isItalic;
-      });
-      // Insert markers at cursor if activating
-      if (_isItalic) {
-        final cursorPos = selection.baseOffset;
-        final newText = text.substring(0, cursorPos) + '*' + text.substring(cursorPos);
-        _contentController.text = newText;
-        _contentController.selection = TextSelection.collapsed(offset: cursorPos + 1);
-      }
-    } else {
-      // Wrap selected text
-      final start = selection.start;
-      final end = selection.end;
-      final selectedText = text.substring(start, end);
-      
-      // Check if already wrapped
-      final beforeStart = start >= 1 ? text.substring(start - 1, start) : '';
-      final afterEnd = end + 1 <= text.length ? text.substring(end, end + 1) : '';
-      
-      String newText;
-      int newCursorPos;
-      
-      if (beforeStart == '*' && afterEnd == '*') {
-        // Remove italic
-        newText = text.substring(0, start - 1) + selectedText + text.substring(end + 1);
-        newCursorPos = start - 1;
-        setState(() {
-          _isItalic = false;
-        });
-      } else {
-        // Add italic
-        newText = text.substring(0, start) + '*' + selectedText + '*' + text.substring(end);
-        newCursorPos = end + 2;
-        setState(() {
-          _isItalic = true;
-        });
-      }
-      
-      _contentController.text = newText;
-      _contentController.selection = TextSelection.collapsed(offset: newCursorPos);
-    }
-    _saveChanges();
-  }
-
-  void _applyUnderlineFormatting() {
-    final selection = _contentController.selection;
-    final text = _contentController.text;
-    
-    if (!selection.isValid) return;
-    
-    if (selection.isCollapsed) {
-      // Toggle state for future typing
-      setState(() {
-        _isUnderline = !_isUnderline;
-      });
-      // Insert markers at cursor if activating
-      if (_isUnderline) {
-        final cursorPos = selection.baseOffset;
-        final newText = text.substring(0, cursorPos) + '__' + text.substring(cursorPos);
-        _contentController.text = newText;
-        _contentController.selection = TextSelection.collapsed(offset: cursorPos + 2);
-      }
-    } else {
-      // Wrap selected text
-      final start = selection.start;
-      final end = selection.end;
-      final selectedText = text.substring(start, end);
-      
-      // Check if already wrapped
-      final beforeStart = start >= 2 ? text.substring(start - 2, start) : '';
-      final afterEnd = end + 2 <= text.length ? text.substring(end, end + 2) : '';
-      
-      String newText;
-      int newCursorPos;
-      
-      if (beforeStart == '__' && afterEnd == '__') {
-        // Remove underline
-        newText = text.substring(0, start - 2) + selectedText + text.substring(end + 2);
-        newCursorPos = start - 2;
-        setState(() {
-          _isUnderline = false;
-        });
-      } else {
-        // Add underline
-        newText = text.substring(0, start) + '__' + selectedText + '__' + text.substring(end);
-        newCursorPos = end + 4;
-        setState(() {
-          _isUnderline = true;
-        });
-      }
-      
-      _contentController.text = newText;
-      _contentController.selection = TextSelection.collapsed(offset: newCursorPos);
-    }
-    _saveChanges();
-  }
-
-  Widget _buildStyledContentField() {
-    return TextField(
-      controller: _contentController,
-      focusNode: _contentFocusNode,
-      onChanged: (value) => _saveChanges(),
-      maxLines: null,
-      expands: true,
-      keyboardType: TextInputType.multiline,
-      textAlignVertical: TextAlignVertical.top,
-      style: GoogleFonts.inter(
-        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
-        fontSize: 14,
-        height: 1.4,
-      ),
-      decoration: InputDecoration(
-        border: InputBorder.none,
-        hintText: _contentController.text.isEmpty ? 'Start writing your journal entry...' : '',
-        hintStyle: TextStyle(
-          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-        ),
-        contentPadding: EdgeInsets.zero,
-        isDense: true,
-      ),
-    );
   }
 
   void _applyListFormatting() {
@@ -1399,40 +1209,26 @@ class _JournalContentState extends State<JournalContent> {
         : null;
     
     return Container(
-      height: 100,
+      height: 60,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         border: Border.all(color: Theme.of(context).dividerColor),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildCompactToolbarButton(Icons.format_bold, _applyBoldFormatting, isActive: _isBold),
-              _buildCompactToolbarButton(Icons.format_italic, _applyItalicFormatting, isActive: _isItalic),
-              _buildCompactToolbarButton(Icons.format_underlined, _applyUnderlineFormatting, isActive: _isUnderline),
-              _buildCompactToolbarButton(Icons.format_list_bulleted, _applyListFormatting),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              if (currentEntry != null)
-                _buildCompactToolbarButton(
-                  currentEntry.isFavorited ? Icons.favorite : Icons.favorite_border,
-                  _toggleFavorite,
-                  color: currentEntry.isFavorited ? Colors.red : null,
-                )
-              else
-                _buildCompactToolbarButton(Icons.favorite_border, () {}),
-              _buildCompactToolbarButton(Icons.add, _addNewEntry),
-              _buildCompactToolbarButton(Icons.delete_outline, _deleteCurrentEntry, color: Colors.red),
-            ],
-          ),
+          _buildCompactToolbarButton(Icons.format_list_bulleted, _applyListFormatting),
+          if (currentEntry != null)
+            _buildCompactToolbarButton(
+              currentEntry.isFavorited ? Icons.favorite : Icons.favorite_border,
+              _toggleFavorite,
+              color: currentEntry.isFavorited ? Colors.red : null,
+            )
+          else
+            _buildCompactToolbarButton(Icons.favorite_border, () {}),
+          _buildCompactToolbarButton(Icons.add, _addNewEntry),
+          _buildCompactToolbarButton(Icons.delete_outline, _deleteCurrentEntry, color: Colors.red),
         ],
       ),
     );
@@ -1442,7 +1238,6 @@ class _JournalContentState extends State<JournalContent> {
     IconData icon,
     VoidCallback onTap, {
     Color? color,
-    bool isActive = false,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -1450,24 +1245,15 @@ class _JournalContentState extends State<JournalContent> {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: isActive 
-              ? (Theme.of(context).brightness == Brightness.dark
-                  ? Colors.blue.withOpacity(0.3)
-                  : Colors.blue.withOpacity(0.2))
-              : (Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white.withOpacity(0.1)
-                  : Colors.black.withOpacity(0.05)),
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.white.withOpacity(0.1)
+              : Colors.black.withOpacity(0.05),
           borderRadius: BorderRadius.circular(8),
-          border: isActive 
-              ? Border.all(color: Colors.blue.withOpacity(0.5), width: 1.5)
-              : null,
         ),
         child: Icon(
           icon,
           size: 18,
-          color: isActive 
-              ? Colors.blue
-              : (color ?? Theme.of(context).colorScheme.onSurface),
+          color: color ?? Theme.of(context).colorScheme.onSurface,
         ),
       ),
     );
@@ -1595,19 +1381,77 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   }
 
   void _toggleEdit() {
-    if (_isEditing) {
-      // Save when exiting edit mode
-      _saveNote();
-    } else {
-      // Enter edit mode
-      setState(() {
-        _isEditing = true;
-      });
-    }
+    setState(() {
+      _isEditing = !_isEditing;
+    });
   }
 
   void _onBackPressed() {
     Navigator.pop(context);
+  }
+
+  Widget _buildFormatButton(IconData icon, String tooltip, VoidCallback onPressed) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white.withOpacity(0.1)
+                : Colors.black.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            icon,
+            size: 20,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _applyListFormatting() {
+    final selection = _contentController.selection;
+    final text = _contentController.text;
+    
+    if (!selection.isValid) return;
+    
+    if (selection.isCollapsed) {
+      // Add bullet at cursor position
+      final cursorPos = selection.baseOffset;
+      final lineStart = text.lastIndexOf('\n', cursorPos - 1) + 1;
+      final newText = text.substring(0, lineStart) + '• ' + text.substring(lineStart);
+      _contentController.text = newText;
+      _contentController.selection = TextSelection.collapsed(offset: cursorPos + 2);
+    } else {
+      // Add bullets to selected lines
+      final start = selection.start;
+      final end = selection.end;
+      final selectedText = text.substring(start, end);
+      final lines = selectedText.split('\n');
+      final bulletedLines = lines.map((line) {
+        if (line.trim().isEmpty) return line;
+        if (line.trimLeft().startsWith('• ')) {
+          // Remove bullet
+          return line.replaceFirst(RegExp(r'^\s*• '), '');
+        }
+        // Add bullet
+        return '• $line';
+      }).join('\n');
+      
+      final newText = text.substring(0, start) + bulletedLines + text.substring(end);
+      _contentController.text = newText;
+      _contentController.selection = TextSelection(
+        baseOffset: start,
+        extentOffset: start + bulletedLines.length,
+      );
+    }
+    
+    setState(() {});
   }
 
   @override
@@ -1673,11 +1517,15 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                     ),
                   ),
                   const Spacer(),
-                  IconButton(
-                    onPressed: _toggleEdit,
-                    icon: Icon(
-                      _isEditing ? Icons.save : Icons.edit,
-                      color: Theme.of(context).colorScheme.onBackground,
+                  GestureDetector(
+                    onTap: _toggleEdit,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        _isEditing ? Icons.close : Icons.edit,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.onBackground,
+                      ),
                     ),
                   ),
                 ],
@@ -1685,205 +1533,164 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
             ),
             Expanded(
               child: Container(
-                margin: const EdgeInsets.all(16),
+                width: double.infinity,
                 decoration: BoxDecoration(
                   color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.black.withOpacity(0.3)
-                          : const Color(0xFF000000).withOpacity(0.1),
-                      spreadRadius: 0,
-                      offset: const Offset(0, 2),
-                      blurRadius: 8,
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_isEditing)
+                      TextField(
+                        controller: _titleController,
+                        style: GoogleFonts.inter(
+                          color: Theme.of(context).colorScheme.onBackground,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                          hintText: 'Note Title',
+                          hintStyle: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                          ),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      )
+                    else
+                      Text(
+                        _titleController.text,
+                        style: GoogleFonts.inter(
+                          color: Theme.of(context).colorScheme.onBackground,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    if (_isEditing)
+                      DropdownButton<String>(
+                        value: _selectedCategory,
+                        items: widget.availableCategories.map((category) {
+                          return DropdownMenuItem(
+                            value: category,
+                            child: Text(
+                              category,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onBackground,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() {
+                              _selectedCategory = value;
+                            });
+                          }
+                        },
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: categoryColor,
+                          borderRadius: BorderRadius.circular(9999),
+                        ),
+                        child: Text(
+                          _selectedCategory,
+                          style: GoogleFonts.inter(
+                            color: textColor,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: _isEditing
+                          ? TextField(
+                              controller: _contentController,
+                              maxLines: null,
+                              expands: true,
+                              textAlignVertical: TextAlignVertical.top,
+                              style: GoogleFonts.inter(
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                                fontSize: 16,
+                                height: 1.6,
+                              ),
+                              decoration: InputDecoration(
+                                border: InputBorder.none,
+                                hintText: 'Start writing your note...',
+                                hintStyle: TextStyle(
+                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                ),
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            )
+                          : SingleChildScrollView(
+                              child: Text(
+                                _contentController.text,
+                                style: GoogleFonts.inter(
+                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                                  fontSize: 16,
+                                  height: 1.6,
+                                ),
+                              ),
+                            ),
                     ),
                   ],
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (_isEditing)
-                        TextField(
-                          controller: _titleController,
-                          style: GoogleFonts.inter(
-                            color: Theme.of(context).colorScheme.onBackground,
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          decoration: InputDecoration(
-                            border: InputBorder.none,
-                            hintText: 'Note Title',
-                            hintStyle: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                            ),
-                          ),
-                        )
-                      else
-                        Text(
-                          _titleController.text,
-                          style: GoogleFonts.inter(
-                            color: Theme.of(context).colorScheme.onBackground,
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      const SizedBox(height: 16),
-                      if (_isEditing)
-                        DropdownButton<String>(
-                          value: _selectedCategory,
-                          items: widget.availableCategories.map((category) {
-                            return DropdownMenuItem(
-                              value: category,
-                              child: Text(
-                                category,
-                                style: TextStyle(
-                                  color: Theme.of(context).colorScheme.onBackground,
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() {
-                                _selectedCategory = value;
-                              });
-                            }
-                          },
-                        )
-                      else
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: categoryColor,
-                            borderRadius: BorderRadius.circular(9999),
-                          ),
-                          child: Text(
-                            _selectedCategory,
-                            style: GoogleFonts.inter(
-                              color: textColor,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: 24),
-                      Expanded(
-                        child: _isEditing
-                            ? Column(
-                                children: [
-                                  Expanded(
-                                    child: TextField(
-                                      controller: _contentController,
-                                      maxLines: null,
-                                      expands: true,
-                                      textAlignVertical: TextAlignVertical.top,
-                                      style: GoogleFonts.inter(
-                                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
-                                        fontSize: 16,
-                                        height: 1.6,
-                                      ),
-                                      decoration: InputDecoration(
-                                        border: InputBorder.none,
-                                        hintText: 'Start writing your note...',
-                                        hintStyle: TextStyle(
-                                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  _buildNoteFormattingToolbar(),
-                                ],
-                              )
-                            : SingleChildScrollView(
-                                child: Text(
-                                  _contentController.text,
-                                  style: GoogleFonts.inter(
-                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
-                                    fontSize: 16,
-                                    height: 1.6,
-                                  ),
-                                ),
-                              ),
-                      ),
-                    ],
-                  ),
-                ),
               ),
             ),
+            if (_isEditing)
+              Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface.withOpacity(0.8),
+                  border: Border(top: BorderSide(color: Theme.of(context).colorScheme.outline.withOpacity(0.3))),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // List formatting button
+                    _buildFormatButton(Icons.format_list_bulleted, 'Bullets', _applyListFormatting),
+                    // Save button - right aligned
+                    GestureDetector(
+                      onTap: _saveNote,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: Provider.of<ThemeProvider>(context).gradient,
+                          borderRadius: BorderRadius.circular(9999),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x19000000),
+                              spreadRadius: 0,
+                              offset: Offset(0, 10),
+                              blurRadius: 15,
+                            ),
+                            BoxShadow(
+                              color: Color(0x19000000),
+                              spreadRadius: 0,
+                              offset: Offset(0, 4),
+                              blurRadius: 6,
+                            ),
+                          ],
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        child: Text(
+                          'Save',
+                          style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
-        ),
-      ),
-    );
-  }
-
-  void _applyNoteFormatting(String prefix, String suffix) {
-    final selection = _contentController.selection;
-    if (!selection.isValid || selection.isCollapsed) {
-      final cursorPosition = _contentController.selection.baseOffset;
-      final text = _contentController.text;
-      final newText = '${text.substring(0, cursorPosition)}$prefix$suffix${text.substring(cursorPosition)}';
-      _contentController.text = newText;
-      _contentController.selection = TextSelection.collapsed(offset: cursorPosition + prefix.length);
-      return;
-    }
-
-    final text = _contentController.text;
-    final selectedText = selection.textInside(text);
-
-    if (selectedText.startsWith(prefix) && selectedText.endsWith(suffix)) {
-      final unformattedText = selectedText.substring(prefix.length, selectedText.length - suffix.length);
-      final newText = text.replaceRange(selection.start, selection.end, unformattedText);
-      _contentController.text = newText;
-      _contentController.selection = TextSelection(
-        baseOffset: selection.start,
-        extentOffset: selection.start + unformattedText.length,
-      );
-    } else {
-      final formattedText = '$prefix$selectedText$suffix';
-      final newText = text.replaceRange(selection.start, selection.end, formattedText);
-      _contentController.text = newText;
-      _contentController.selection = TextSelection(
-        baseOffset: selection.start,
-        extentOffset: selection.start + formattedText.length,
-      );
-    }
-  }
-
-  Widget _buildNoteFormattingToolbar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          _buildFormatButton(Icons.format_bold, () => _applyNoteFormatting('**', '**')),
-          const SizedBox(width: 8),
-          _buildFormatButton(Icons.format_italic, () => _applyNoteFormatting('*', '*')),
-          const SizedBox(width: 8),
-          _buildFormatButton(Icons.format_underlined, () => _applyNoteFormatting('__', '__')),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFormatButton(IconData icon, VoidCallback onPressed) {
-    return SizedBox(
-      width: 36,
-      height: 36,
-      child: Material(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? Colors.black.withOpacity(0.2)
-            : const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(6),
-        child: InkWell(
-          onTap: onPressed,
-          child: Icon(
-            icon,
-            size: 18,
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-          ),
         ),
       ),
     );

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../services/notes_service.dart';
+import '../utils/theme_provider.dart';
 
 class NewNoteScreen extends StatefulWidget {
   final List<String> availableCategories;
@@ -21,11 +23,6 @@ class _NewNoteScreenState extends State<NewNoteScreen> {
   final TextEditingController _contentController = TextEditingController();
   final FocusNode _contentFocusNode = FocusNode();
   late String _selectedCategory;
-  
-  // Formatting states
-  bool _isBold = false;
-  bool _isItalic = false;
-  bool _isUnderline = false;
 
   @override
   void initState() {
@@ -208,32 +205,29 @@ class _NewNoteScreenState extends State<NewNoteScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Formatting buttons
-                  Row(
-                    children: [
-                      _buildFormatButton(Icons.format_bold, 'Bold', _applyBoldFormatting, isActive: _isBold),
-                      const SizedBox(width: 8),
-                      _buildFormatButton(Icons.format_italic, 'Italic', _applyItalicFormatting, isActive: _isItalic),
-                      const SizedBox(width: 8),
-                      _buildFormatButton(Icons.format_underlined, 'Underline', _applyUnderlineFormatting, isActive: _isUnderline),
-                      const SizedBox(width: 8),
-                      _buildFormatButton(Icons.format_list_bulleted, 'Bullets', _applyListFormatting),
-                    ],
-                  ),
+                  // List formatting button
+                  _buildFormatButton(Icons.format_list_bulleted, 'Bullets', _applyListFormatting),
                   // Save button - right aligned
                   GestureDetector(
                     onTap: _saveNote,
                     child: Container(
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Theme.of(context).colorScheme.primary,
-                            Theme.of(context).colorScheme.primary.withOpacity(0.7),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(8),
+                        gradient: Provider.of<ThemeProvider>(context).gradient,
+                        borderRadius: BorderRadius.circular(9999),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x19000000),
+                            spreadRadius: 0,
+                            offset: Offset(0, 10),
+                            blurRadius: 15,
+                          ),
+                          BoxShadow(
+                            color: Color(0x19000000),
+                            spreadRadius: 0,
+                            offset: Offset(0, 4),
+                            blurRadius: 6,
+                          ),
+                        ],
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                       child: Text(
@@ -255,7 +249,7 @@ class _NewNoteScreenState extends State<NewNoteScreen> {
     );
   }
 
-  Widget _buildFormatButton(IconData icon, String tooltip, VoidCallback onPressed, {bool isActive = false}) {
+  Widget _buildFormatButton(IconData icon, String tooltip, VoidCallback onPressed) {
     return Tooltip(
       message: tooltip,
       child: InkWell(
@@ -264,184 +258,19 @@ class _NewNoteScreenState extends State<NewNoteScreen> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: isActive 
-                ? (Theme.of(context).brightness == Brightness.dark
-                    ? Colors.blue.withOpacity(0.3)
-                    : Colors.blue.withOpacity(0.2))
-                : (Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white.withOpacity(0.1)
-                    : Colors.black.withOpacity(0.05)),
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white.withOpacity(0.1)
+                : Colors.black.withOpacity(0.05),
             borderRadius: BorderRadius.circular(8),
-            border: isActive 
-                ? Border.all(color: Colors.blue.withOpacity(0.5), width: 1.5)
-                : null,
           ),
           child: Icon(
             icon,
             size: 20,
-            color: isActive 
-                ? Colors.blue
-                : Theme.of(context).colorScheme.onSurface,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
       ),
     );
-  }
-
-  void _applyBoldFormatting() {
-    final selection = _contentController.selection;
-    final text = _contentController.text;
-    
-    if (!selection.isValid) return;
-    
-    if (selection.isCollapsed) {
-      // Toggle state for future typing
-      setState(() {
-        _isBold = !_isBold;
-      });
-      // Insert markers at cursor if activating
-      if (_isBold) {
-        final cursorPos = selection.baseOffset;
-        final newText = text.substring(0, cursorPos) + '**' + text.substring(cursorPos);
-        _contentController.text = newText;
-        _contentController.selection = TextSelection.collapsed(offset: cursorPos + 2);
-      }
-    } else {
-      // Wrap selected text
-      final start = selection.start;
-      final end = selection.end;
-      final selectedText = text.substring(start, end);
-      
-      // Check if already wrapped
-      final beforeStart = start >= 2 ? text.substring(start - 2, start) : '';
-      final afterEnd = end + 2 <= text.length ? text.substring(end, end + 2) : '';
-      
-      String newText;
-      int newCursorPos;
-      
-      if (beforeStart == '**' && afterEnd == '**') {
-        // Remove bold
-        newText = text.substring(0, start - 2) + selectedText + text.substring(end + 2);
-        newCursorPos = start - 2;
-        setState(() {
-          _isBold = false;
-        });
-      } else {
-        // Add bold
-        newText = text.substring(0, start) + '**' + selectedText + '**' + text.substring(end);
-        newCursorPos = end + 4;
-        setState(() {
-          _isBold = true;
-        });
-      }
-      
-      _contentController.text = newText;
-      _contentController.selection = TextSelection.collapsed(offset: newCursorPos);
-    }
-  }
-
-  void _applyItalicFormatting() {
-    final selection = _contentController.selection;
-    final text = _contentController.text;
-    
-    if (!selection.isValid) return;
-    
-    if (selection.isCollapsed) {
-      // Toggle state for future typing
-      setState(() {
-        _isItalic = !_isItalic;
-      });
-      // Insert markers at cursor if activating
-      if (_isItalic) {
-        final cursorPos = selection.baseOffset;
-        final newText = text.substring(0, cursorPos) + '*' + text.substring(cursorPos);
-        _contentController.text = newText;
-        _contentController.selection = TextSelection.collapsed(offset: cursorPos + 1);
-      }
-    } else {
-      // Wrap selected text
-      final start = selection.start;
-      final end = selection.end;
-      final selectedText = text.substring(start, end);
-      
-      // Check if already wrapped
-      final beforeStart = start >= 1 ? text.substring(start - 1, start) : '';
-      final afterEnd = end + 1 <= text.length ? text.substring(end, end + 1) : '';
-      
-      String newText;
-      int newCursorPos;
-      
-      if (beforeStart == '*' && afterEnd == '*') {
-        // Remove italic
-        newText = text.substring(0, start - 1) + selectedText + text.substring(end + 1);
-        newCursorPos = start - 1;
-        setState(() {
-          _isItalic = false;
-        });
-      } else {
-        // Add italic
-        newText = text.substring(0, start) + '*' + selectedText + '*' + text.substring(end);
-        newCursorPos = end + 2;
-        setState(() {
-          _isItalic = true;
-        });
-      }
-      
-      _contentController.text = newText;
-      _contentController.selection = TextSelection.collapsed(offset: newCursorPos);
-    }
-  }
-
-  void _applyUnderlineFormatting() {
-    final selection = _contentController.selection;
-    final text = _contentController.text;
-    
-    if (!selection.isValid) return;
-    
-    if (selection.isCollapsed) {
-      // Toggle state for future typing
-      setState(() {
-        _isUnderline = !_isUnderline;
-      });
-      // Insert markers at cursor if activating
-      if (_isUnderline) {
-        final cursorPos = selection.baseOffset;
-        final newText = text.substring(0, cursorPos) + '__' + text.substring(cursorPos);
-        _contentController.text = newText;
-        _contentController.selection = TextSelection.collapsed(offset: cursorPos + 2);
-      }
-    } else {
-      // Wrap selected text
-      final start = selection.start;
-      final end = selection.end;
-      final selectedText = text.substring(start, end);
-      
-      // Check if already wrapped
-      final beforeStart = start >= 2 ? text.substring(start - 2, start) : '';
-      final afterEnd = end + 2 <= text.length ? text.substring(end, end + 2) : '';
-      
-      String newText;
-      int newCursorPos;
-      
-      if (beforeStart == '__' && afterEnd == '__') {
-        // Remove underline
-        newText = text.substring(0, start - 2) + selectedText + text.substring(end + 2);
-        newCursorPos = start - 2;
-        setState(() {
-          _isUnderline = false;
-        });
-      } else {
-        // Add underline
-        newText = text.substring(0, start) + '__' + selectedText + '__' + text.substring(end);
-        newCursorPos = end + 4;
-        setState(() {
-          _isUnderline = true;
-        });
-      }
-      
-      _contentController.text = newText;
-      _contentController.selection = TextSelection.collapsed(offset: newCursorPos);
-    }
   }
 
   void _applyListFormatting() {

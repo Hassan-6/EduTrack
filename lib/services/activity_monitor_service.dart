@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'notification_service.dart';
+import '../models/notification_model.dart';
 
 /// Service to monitor activity and show notifications without creating Firestore docs for other users
 /// Uses real-time listeners to detect new items and show local notifications
@@ -302,6 +303,23 @@ class ActivityMonitorService {
               body: '$responderName responded to "$questionTitle"',
               payload: 'qna:$questionId',
             );
+            
+            // Also create Firestore notification for notifications screen
+            try {
+              await _notificationService.createNotification(
+                userId: userId,
+                type: NotificationType.qnaResponse,
+                title: 'New Response to Your Question',
+                body: '$responderName responded to "$questionTitle"',
+                data: {
+                  'questionId': questionId,
+                  'responderName': responderName,
+                  'questionTitle': questionTitle,
+                },
+              );
+            } catch (e) {
+              print('Error creating Firestore notification: $e');
+            }
           } else {
             print('[Monitor] ❌ Skipped notification (old reply or self-reply)');
           }

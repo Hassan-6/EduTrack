@@ -355,13 +355,6 @@ class _QAWallScreenState extends State<QAWallScreen> {
                   responderName: responderName,
                   postId: questionId,
                 );
-                
-                await NotificationService().notifyQnaResponse(
-                  postOwnerId: questionAuthorId,
-                  questionTitle: questionTitle,
-                  responderName: responderName,
-                  postId: questionId,
-                );
               }
               
               await _loadQuestions();

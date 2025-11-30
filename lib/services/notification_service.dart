@@ -221,6 +221,9 @@ class NotificationService {
     required String body,
     required DateTime scheduledDate,
     String? payload,
+    String? userId,
+    NotificationType? notificationType,
+    Map<String, dynamic>? data,
   }) async {
     try {
       print('scheduleNotification called:');
@@ -272,6 +275,27 @@ class NotificationService {
       );
       
       print('  Notification scheduled successfully!');
+      
+      // Create Firestore record at the scheduled time (not immediately)
+      if (userId != null && notificationType != null) {
+        final delay = scheduledDate.difference(DateTime.now());
+        print('  Scheduling Firestore record creation in ${delay.inSeconds} seconds');
+        
+        Future.delayed(delay, () async {
+          try {
+            await createNotification(
+              userId: userId,
+              type: notificationType,
+              title: title,
+              body: body,
+              data: data ?? {},
+            );
+            print('  Firestore notification record created at scheduled time');
+          } catch (e) {
+            print('  Error creating Firestore record: $e');
+          }
+        });
+      }
     } catch (e, stackTrace) {
       print('Error scheduling notification: $e');
       print('Stack trace: $stackTrace');
@@ -324,7 +348,7 @@ class NotificationService {
         .update({'isRead': true});
   }
 
-  // Get user notifications stream
+  // Get user notifications stream (only shows notifications that are due or past due)
   Stream<List<AppNotification>> getUserNotifications(String userId) {
     return _firestore
         .collection('notifications')
@@ -410,21 +434,12 @@ class NotificationService {
               : taskDescription,
           scheduledDate: reminderTime,
           payload: 'task:$taskId',
+          userId: userId,
+          notificationType: NotificationType.todoReminder,
+          data: {'taskId': taskId, 'taskTitle': taskTitle},
         );
         
         print('Task reminder scheduled successfully');
-
-        // Save to Firestore
-        await createNotification(
-          userId: userId,
-        type: NotificationType.todoReminder,
-        title: 'Task Reminder: $taskTitle',
-        body: taskDescription.isEmpty
-            ? 'Your task is due soon!'
-            : taskDescription,
-          data: {'taskId': taskId, 'taskTitle': taskTitle},
-          scheduledFor: reminderTime,
-        );
       } else {
         print('Task reminder NOT scheduled - reminder time ($reminderTime) is in the past');
         print('  Due date: $dueDate');
@@ -451,16 +466,11 @@ class NotificationService {
         body: eventTitle,
         scheduledDate: dayBefore,
         payload: 'calendar:$eventId',
-      );
-
-      await createNotification(
         userId: userId,
-        type: NotificationType.calendarReminder,
-        title: 'Upcoming Event Tomorrow',
-        body: eventTitle,
+        notificationType: NotificationType.calendarReminder,
         data: {'eventId': eventId, 'eventTitle': eventTitle},
-        scheduledFor: dayBefore,
       );
+      print('Calendar reminder scheduled for day before: $dayBefore');
     }
 
     // Schedule notification for day of event (1 hour before)
@@ -472,16 +482,11 @@ class NotificationService {
         body: '$eventTitle starts in 1 hour',
         scheduledDate: oneHourBefore,
         payload: 'calendar:$eventId',
-      );
-
-      await createNotification(
         userId: userId,
-        type: NotificationType.calendarReminder,
-        title: 'Event Starting Soon',
-        body: '$eventTitle starts in 1 hour',
+        notificationType: NotificationType.calendarReminder,
         data: {'eventId': eventId, 'eventTitle': eventTitle},
-        scheduledFor: oneHourBefore,
       );
+      print('Calendar reminder scheduled for 1 hour before: $oneHourBefore');
     }
   }
 
@@ -499,24 +504,11 @@ class NotificationService {
       return;
     }
     
-    try {
-      // Create notification in Firestore for the question owner
-      await createNotification(
-        userId: postOwnerId,
-        type: NotificationType.qnaResponse,
-        title: 'New Reply to Your Question',
-        body: '$responderName replied to "$questionTitle"',
-        data: {
-          'questionId': postId,
-          'responderName': responderName,
-          'questionTitle': questionTitle,
-        },
-      );
-      
-      print('QnA notification created: $responderName replied to "$questionTitle" for user $postOwnerId');
-    } catch (e) {
-      print('Error creating QnA notification: $e');
-    }
+    // Note: Notification will be handled by ActivityMonitorService
+    // which monitors replies in real-time and shows local notifications
+    // This prevents double notifications
+    print('Q&A response logged: $responderName replied to "$questionTitle"');
+    print('ActivityMonitorService will handle the notification display');
   }
 
   // Notify students about presented question
