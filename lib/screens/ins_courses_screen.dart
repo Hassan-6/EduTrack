@@ -22,7 +22,11 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
   String _instructorName = 'Instructor';
   bool _isLoadingName = true;
   List<Map<String, dynamic>> _firebaseCourses = [];
+  List<Map<String, dynamic>> _filteredCourses = [];
   bool _isLoadingCourses = true;
+  String _searchQuery = '';
+  String _selectedCategory = 'All';
+  String _sortBy = 'name'; // name, category, date
 
   @override
   void initState() {
@@ -68,8 +72,10 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
         if (mounted) {
           setState(() {
             _firebaseCourses = courses;
+            _filteredCourses = courses;
             _isLoadingCourses = false;
           });
+          _applyFiltersAndSort();
         }
       }
     } catch (e) {
@@ -94,20 +100,187 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
     }
   }
 
-  void _searchCourses() {
-    // TODO: Implement search functionality
+  void _applyFiltersAndSort() {
+    setState(() {
+      // Filter by search query and category
+      _filteredCourses = _firebaseCourses.where((course) {
+        final title = (course['title'] ?? '').toLowerCase();
+        final categoryId = course['category'] as String?;
+        final category = CourseCategories.tryGetById(categoryId) ?? CourseCategories.computerScience;
+        final query = _searchQuery.toLowerCase();
+        
+        // If search query is empty, only filter by category
+        final titleMatch = query.isEmpty || title.contains(query);
+        final categoryMatch = _selectedCategory == 'All' || category.name == _selectedCategory;
+        
+        return titleMatch && categoryMatch;
+      }).toList();
+      
+      // Sort courses
+      _filteredCourses.sort((a, b) {
+        switch (_sortBy) {
+          case 'name':
+            return (a['title'] ?? '').compareTo(b['title'] ?? '');
+          case 'category':
+            final catA = CourseCategories.tryGetById(a['category'])?.name ?? '';
+            final catB = CourseCategories.tryGetById(b['category'])?.name ?? '';
+            return catA.compareTo(catB);
+          case 'date':
+            final dateA = a['createdAt'] as int? ?? 0;
+            final dateB = b['createdAt'] as int? ?? 0;
+            return dateB.compareTo(dateA); // Most recent first
+          default:
+            return 0;
+        }
+      });
+    });
+  }
+  
+  void _showSearchDialog() {
+    final searchController = TextEditingController(text: _searchQuery);
+    String searchCategory = _selectedCategory;
+    
+    // Get list of categories from existing courses
+    final categoriesInUse = <String>{'All'};
+    for (var course in _firebaseCourses) {
+      final categoryId = course['category'] as String?;
+      if (categoryId != null) {
+        final category = CourseCategories.tryGetById(categoryId);
+        if (category != null) {
+          categoriesInUse.add(category.name);
+        }
+      }
+    }
+    
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: Theme.of(context).cardColor,
+          title: Text(
+            'Search Courses',
+            style: GoogleFonts.inter(
+              color: Theme.of(context).colorScheme.onBackground,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: searchController,
+                style: GoogleFonts.inter(
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Search by title...',
+                  hintStyle: GoogleFonts.inter(
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              DropdownButton<String>(
+                value: searchCategory,
+                isExpanded: true,
+                items: categoriesInUse.map((category) {
+                  return DropdownMenuItem(
+                    value: category,
+                    child: Text(
+                      category,
+                      style: GoogleFonts.inter(
+                        color: Theme.of(context).colorScheme.onBackground,
+                      ),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setDialogState(() {
+                      searchCategory = value;
+                    });
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.inter(
+                  color: Theme.of(context).primaryColor,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                setState(() {
+                  _searchQuery = searchController.text;
+                  _selectedCategory = searchCategory;
+                });
+                _applyFiltersAndSort();
+              },
+              child: Text(
+                'Search',
+                style: GoogleFonts.inter(
+                  color: Theme.of(context).primaryColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  void _showSortDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Search Courses'),
-        content: const Text('Search functionality would go here.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+        backgroundColor: Theme.of(context).cardColor,
+        title: Text(
+          'Sort Courses',
+          style: GoogleFonts.inter(
+            color: Theme.of(context).colorScheme.onBackground,
+            fontWeight: FontWeight.w600,
           ),
-        ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildSortOption('Name', 'name'),
+            _buildSortOption('Category', 'category'),
+            _buildSortOption('Created Date', 'date'),
+          ],
+        ),
       ),
+    );
+  }
+  
+  Widget _buildSortOption(String label, String value) {
+    return RadioListTile<String>(
+      title: Text(
+        label,
+        style: GoogleFonts.inter(
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
+      ),
+      value: value,
+      groupValue: _sortBy,
+      onChanged: (newValue) {
+        setState(() {
+          _sortBy = newValue!;
+        });
+        _applyFiltersAndSort();
+        Navigator.pop(context);
+      },
     );
   }
 
@@ -150,8 +323,12 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
             },
           ),
           IconButton(
+            icon: Icon(Icons.sort, color: Theme.of(context).colorScheme.onBackground),
+            onPressed: _showSortDialog,
+          ),
+          IconButton(
             icon: Icon(Icons.search, color: Theme.of(context).colorScheme.onBackground),
-            onPressed: _searchCourses,
+            onPressed: _showSearchDialog,
           ),
         ],
       ),
@@ -171,8 +348,10 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
                       // Courses List
                       if (_firebaseCourses.isEmpty)
                         _buildEmptyState()
+                      else if (_filteredCourses.isEmpty)
+                        _buildNoResultsState()
                       else
-                        ..._firebaseCourses.map((course) => _buildFirebaseCourseCard(course)),
+                        ..._filteredCourses.map((course) => _buildFirebaseCourseCard(course)),
                     ],
                   ),
                 ),
@@ -213,7 +392,9 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'You are teaching ${_firebaseCourses.length} course${_firebaseCourses.length == 1 ? '' : 's'} this semester',
+            _searchQuery.isEmpty && _selectedCategory == 'All'
+                ? 'You are teaching ${_firebaseCourses.length} course${_firebaseCourses.length == 1 ? '' : 's'} this semester'
+                : 'Showing ${_filteredCourses.length} of ${_firebaseCourses.length} courses',
             style: GoogleFonts.inter(
               color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
               fontSize: 14,
@@ -287,6 +468,40 @@ class _InstructorCoursesScreenState extends State<InstructorCoursesScreen> {
           const SizedBox(height: 8),
           Text(
             'Tap the + button to create your first course',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildNoResultsState() {
+    return Container(
+      padding: const EdgeInsets.all(40),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search_off,
+            size: 64,
+            color: Colors.grey.shade400,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No Courses Found',
+            style: GoogleFonts.inter(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onBackground,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Try adjusting your search query',
             style: GoogleFonts.inter(
               fontSize: 14,
               color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),

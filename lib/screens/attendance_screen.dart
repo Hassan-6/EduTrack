@@ -23,6 +23,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   bool _isPhotoTaken = false;
   bool _isCodeEntered = false;
   String? _capturedPhotoPath;
+  Map<String, dynamic>? _locationData;
 
   @override
   void initState() {
@@ -81,10 +82,18 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       ),
     );
 
-    if (result != null) {
+    if (result != null && result is Map<String, dynamic>) {
       setState(() {
         _isPhotoTaken = true;
-        _capturedPhotoPath = result; // Store the photo path
+        _capturedPhotoPath = result['photoPath']; // Store the photo path
+        _locationData = {
+          'latitude': result['latitude'],
+          'longitude': result['longitude'],
+          'altitude': result['altitude'],
+          'address': result['address'],
+          'accuracy': result['accuracy'],
+          'timestamp': DateTime.now().toIso8601String(),
+        };
       });
       
       ScaffoldMessenger.of(context).showSnackBar(
@@ -191,33 +200,22 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       print('=== ATTENDANCE VERIFIED SUCCESSFULLY ===');
       print('Verified course ID: $verifiedCourseId');
       print('Captured photo path: $_capturedPhotoPath');
+      print('Location data: $_locationData');
       
-      // Now upload photo and update the session with photo URL
-      if (_capturedPhotoPath != null && verifiedCourseId != null) {
-        print('Starting photo upload process...');
-        final photoURL = await FirebaseService.uploadAttendancePhoto(
+      // Save location data directly (skipping photo upload as storage is not available)
+      if (verifiedCourseId != null && _locationData != null) {
+        print('Saving location data to Firestore...');
+        await FirebaseService.updateAttendanceLocation(
+          courseId: verifiedCourseId,
           studentId: studentId,
-          photoPath: _capturedPhotoPath!,
+          otp: enteredOtp,
+          locationData: _locationData!,
         );
-        print('Photo upload result: $photoURL');
-        
-        // Update the session with photo URL
-        if (photoURL != null && photoURL.isNotEmpty) {
-          print('Updating attendance session with photo URL...');
-          await FirebaseService.updateAttendancePhoto(
-            courseId: verifiedCourseId,
-            studentId: studentId,
-            otp: enteredOtp,
-            photoURL: photoURL,
-          );
-          print('Photo URL updated in session');
-        } else {
-          print('WARNING: Photo URL is null or empty, not updating session');
-        }
+        print('Location data saved successfully');
       } else {
-        print('WARNING: Photo path or course ID is null');
-        print('Photo path: $_capturedPhotoPath');
+        print('WARNING: Course ID or location data is null');
         print('Course ID: $verifiedCourseId');
+        print('Location data: $_locationData');
       }
 
       // Show success dialog

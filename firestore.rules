@@ -114,11 +114,11 @@ service cloud.firestore {
         // Only instructors can create attendance sessions
         allow create: if isInstructor();
         
-        // Students can update to add themselves to verifiedStudents array and/or studentPhotos map
+        // Students can update to add themselves to verifiedStudents array and/or studentPhotos map and/or studentLocations map
         // Allow updating these fields separately or together
         // Instructors can update to close the session or manage attendance
         allow update: if (isStudent() && 
-                         request.resource.data.diff(resource.data).affectedKeys().hasAny(['verifiedStudents', 'studentPhotos']) &&
+                         request.resource.data.diff(resource.data).affectedKeys().hasAny(['verifiedStudents', 'studentPhotos', 'studentLocations']) &&
                          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['otp', 'createdAt', 'expiresAt', 'isActive'])) ||
                         isInstructor();
         

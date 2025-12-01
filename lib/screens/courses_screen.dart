@@ -20,7 +20,11 @@ class CoursesScreen extends StatefulWidget {
 
 class _CoursesScreenState extends State<CoursesScreen> {
   List<Course> _courses = [];
+  List<Course> _filteredCourses = [];
   bool _isLoading = true;
+  String _searchQuery = '';
+  String _selectedCategory = 'All';
+  String _sortBy = 'name'; // name, category, date
 
   @override
   void initState() {
@@ -91,8 +95,10 @@ class _CoursesScreenState extends State<CoursesScreen> {
       
       setState(() {
         _courses = courses;
+        _filteredCourses = courses;
         _isLoading = false;
       });
+      _applyFiltersAndSort();
     } catch (e) {
       print('Error loading courses: $e');
       setState(() {
@@ -135,30 +141,192 @@ class _CoursesScreenState extends State<CoursesScreen> {
     );
   }
 
-  void _searchCourses() {
-    // TODO: Implement search functionality
+  void _applyFiltersAndSort() {
+    setState(() {
+      // Filter by search query and category
+      _filteredCourses = _courses.where((course) {
+        final courseName = course.name.toLowerCase();
+        final query = _searchQuery.toLowerCase();
+        
+        // Get category name from the course's gradient/icon
+        String categoryName = '';
+        for (var category in CourseCategories.all) {
+          if (category.primaryColor == course.color) {
+            categoryName = category.name;
+            break;
+          }
+        }
+        
+        // If search query is empty, only filter by category
+        final titleMatch = query.isEmpty || courseName.contains(query);
+        final categoryMatch = _selectedCategory == 'All' || categoryName == _selectedCategory;
+        
+        return titleMatch && categoryMatch;
+      }).toList();
+      
+      // Sort courses
+      _filteredCourses.sort((a, b) {
+        switch (_sortBy) {
+          case 'name':
+            return a.name.compareTo(b.name);
+          case 'category':
+            // Compare by color as a proxy for category
+            return a.color.value.compareTo(b.color.value);
+          case 'date':
+            // For students, this would be join date - using reverse order (most recent first)
+            // Since we don't have join date in Course model, we'll maintain current order
+            return _courses.indexOf(b).compareTo(_courses.indexOf(a));
+          default:
+            return 0;
+        }
+      });
+    });
+  }
+  
+  void _showSearchDialog() {
+    final searchController = TextEditingController(text: _searchQuery);
+    String searchCategory = _selectedCategory;
+    
+    // Get list of categories from existing courses
+    final categoriesInUse = <String>{'All'};
+    for (var course in _courses) {
+      for (var category in CourseCategories.all) {
+        if (category.primaryColor == course.color) {
+          categoriesInUse.add(category.name);
+          break;
+        }
+      }
+    }
+    
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: Theme.of(context).cardColor,
+          title: Text(
+            'Search Courses',
+            style: GoogleFonts.inter(
+              color: Theme.of(context).colorScheme.onBackground,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: searchController,
+                style: GoogleFonts.inter(
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Search by title...',
+                  hintStyle: GoogleFonts.inter(
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              DropdownButton<String>(
+                value: searchCategory,
+                isExpanded: true,
+                items: categoriesInUse.map((category) {
+                  return DropdownMenuItem(
+                    value: category,
+                    child: Text(
+                      category,
+                      style: GoogleFonts.inter(
+                        color: Theme.of(context).colorScheme.onBackground,
+                      ),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setDialogState(() {
+                      searchCategory = value;
+                    });
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.inter(
+                  color: Theme.of(context).primaryColor,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                setState(() {
+                  _searchQuery = searchController.text;
+                  _selectedCategory = searchCategory;
+                });
+                _applyFiltersAndSort();
+              },
+              child: Text(
+                'Search',
+                style: GoogleFonts.inter(
+                  color: Theme.of(context).primaryColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  void _showSortDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).cardColor, // THEME: Dynamic background
+        backgroundColor: Theme.of(context).cardColor,
         title: Text(
-          'Search Courses',
-          style: TextStyle(color: Theme.of(context).colorScheme.onBackground), // THEME: Dynamic text
-        ),
-        content: Text(
-          'Search functionality would go here.',
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurface), // THEME: Dynamic text
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'OK',
-              style: TextStyle(color: Theme.of(context).primaryColor), // THEME: Dynamic button
-            ),
+          'Sort Courses',
+          style: GoogleFonts.inter(
+            color: Theme.of(context).colorScheme.onBackground,
+            fontWeight: FontWeight.w600,
           ),
-        ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildSortOption('Name', 'name'),
+            _buildSortOption('Category', 'category'),
+            _buildSortOption('Joined Date', 'date'),
+          ],
+        ),
       ),
+    );
+  }
+  
+  Widget _buildSortOption(String label, String value) {
+    return RadioListTile<String>(
+      title: Text(
+        label,
+        style: GoogleFonts.inter(
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
+      ),
+      value: value,
+      groupValue: _sortBy,
+      onChanged: (newValue) {
+        setState(() {
+          _sortBy = newValue!;
+        });
+        _applyFiltersAndSort();
+        Navigator.pop(context);
+      },
     );
   }
 
@@ -197,8 +365,12 @@ class _CoursesScreenState extends State<CoursesScreen> {
             },
           ),
           IconButton(
+            icon: Icon(Icons.sort, color: Theme.of(context).colorScheme.onBackground), // THEME: Dynamic icon
+            onPressed: _showSortDialog,
+          ),
+          IconButton(
             icon: Icon(Icons.search, color: Theme.of(context).colorScheme.onBackground), // THEME: Dynamic icon
-            onPressed: _searchCourses,
+            onPressed: _showSearchDialog,
           ),
         ],
       ),
@@ -211,50 +383,45 @@ class _CoursesScreenState extends State<CoursesScreen> {
               ),
             )
           : _courses.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.school_outlined,
-                        size: 64,
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No enrolled courses yet',
-                        style: GoogleFonts.inter(
-                          color: Theme.of(context).colorScheme.onSurface,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
+              ? _buildEmptyState()
+              : _filteredCourses.isEmpty
+                  ? _buildNoResultsState()
+                  : RefreshIndicator(
+                      onRefresh: _loadEnrolledCourses,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            children: [
+                              // Search info banner
+                              if (_searchQuery.isNotEmpty || _selectedCategory != 'All')
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(12),
+                                  margin: const EdgeInsets.only(bottom: 16),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).primaryColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: Theme.of(context).primaryColor.withOpacity(0.3),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Showing ${_filteredCourses.length} of ${_courses.length} courses',
+                                    style: GoogleFonts.inter(
+                                      color: Theme.of(context).colorScheme.onSurface,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              // Courses List
+                              ..._filteredCourses.map((course) => _buildCourseCard(course)),
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Tap the + button to join a course',
-                        style: GoogleFonts.inter(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _loadEnrolledCourses,
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          // Courses List Only - No header card
-                          ..._courses.map((course) => _buildCourseCard(course)),
-                        ],
                       ),
                     ),
-                  ),
-                ),
       floatingActionButton: _buildCustomFloatingActionButton(themeProvider),
     );
   }
@@ -294,6 +461,70 @@ class _CoursesScreenState extends State<CoursesScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+  
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.school_outlined,
+            size: 64,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No enrolled courses yet',
+            style: GoogleFonts.inter(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Tap the + button to join a course',
+            style: GoogleFonts.inter(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildNoResultsState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search_off,
+            size: 64,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No Courses Found',
+            style: GoogleFonts.inter(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Try adjusting your search query',
+            style: GoogleFonts.inter(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              fontSize: 14,
+            ),
+          ),
+        ],
       ),
     );
   }

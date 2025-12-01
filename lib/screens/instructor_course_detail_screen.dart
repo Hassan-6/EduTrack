@@ -121,16 +121,21 @@ class _InstructorCourseDetailScreenState
             session['verifiedStudents'] as List<dynamic>? ?? [];
         final studentPhotos =
             session['studentPhotos'] as Map<String, dynamic>? ?? {};
+        final studentLocations =
+            session['studentLocations'] as Map<String, dynamic>? ?? {};
 
         print('Session ${session['id']}: studentPhotos = $studentPhotos');
+        print('Session ${session['id']}: studentLocations = $studentLocations');
 
         List<Map<String, dynamic>> studentDetails = [];
 
         for (var studentId in verifiedStudents) {
           final profile = studentProfiles[studentId.toString()];
           final photoURL = studentPhotos[studentId.toString()] ?? '';
+          final locationData = studentLocations[studentId.toString()] as Map<String, dynamic>?;
 
           print('Student $studentId: photoURL = $photoURL');
+          print('Student $studentId: locationData = $locationData');
 
           if (profile != null) {
             studentDetails.add({
@@ -138,6 +143,7 @@ class _InstructorCourseDetailScreenState
               'rollNumber': profile['rollNumber'] ?? 'N/A',
               'photoURL': photoURL,
               'studentId': studentId.toString(),
+              'locationData': locationData,
             });
           } else {
             studentDetails.add({
@@ -145,6 +151,7 @@ class _InstructorCourseDetailScreenState
               'rollNumber': 'N/A',
               'photoURL': photoURL,
               'studentId': studentId.toString(),
+              'locationData': locationData,
             });
           }
         }
@@ -861,7 +868,7 @@ class _InstructorCourseDetailScreenState
                     const SizedBox(height: 12),
                     _buildActionButton(
                       'View Attendance History',
-                      Icons.history,
+                      Icons.location_on,
                       _viewAttendanceHistory,
                     ),
                     const SizedBox(height: 20),

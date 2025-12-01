@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'present_question_screen.dart';
 import 'question_results_screen.dart';
 import 'attendance_history_screen.dart';
+import 'ins_attendance_history_screen.dart';
 
 class InstructorCourseDetailScreen extends StatefulWidget {
   final Course course;
@@ -190,6 +191,18 @@ class _InstructorCourseDetailScreenState
         builder: (context) => AttendanceHistoryScreen(
           course: widget.course,
           attendanceRecords: _attendanceRecords,
+        ),
+      ),
+    );
+  }
+
+  void _viewAttendanceWithLocations() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => InsAttendanceHistoryScreen(
+          courseId: widget.course.id,
+          courseName: widget.course.name,
         ),
       ),
     );
@@ -830,6 +843,40 @@ class _InstructorCourseDetailScreenState
                     const SizedBox(width: 8),
                     Text(
                       'View Attendance History',
+                      style: GoogleFonts.inter(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // View Attendance with Locations Button
+          Container(
+            width: double.infinity,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: _viewAttendanceWithLocations,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.location_on, color: widget.course.color),
+                    const SizedBox(width: 8),
+                    Text(
+                      'View Attendance with Locations',
                       style: GoogleFonts.inter(
                         color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 16,

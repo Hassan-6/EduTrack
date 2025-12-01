@@ -91,6 +91,24 @@ class NotificationService {
       initSettings,
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
+    
+    // Create notification channel for Android with high importance
+    const androidChannel = AndroidNotificationChannel(
+      'edutrack_channel',
+      'EduTrack Notifications',
+      description: 'Notifications for tasks, events, and updates',
+      importance: Importance.max,
+      playSound: true,
+      enableVibration: true,
+      enableLights: true,
+      showBadge: true,
+    );
+    
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(androidChannel);
+    
+    print('Notification channel created with high importance');
   }
 
   // Initialize Firebase messaging
@@ -112,6 +130,150 @@ class NotificationService {
 
     // Handle background messages
     FirebaseMessaging.onMessageOpenedApp.listen(_handleBackgroundMessage);
+    
+    // Start listening for new notifications in Firestore
+    _startNotificationListener();
+  }
+  
+  // Listen for new notifications in Firestore and show local notifications
+  void _startNotificationListener() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      print('Cannot start notification listener: No user logged in');
+      return;
+    }
+    
+    print('Starting notification listener for user: ${user.uid}');
+    
+    // Track the last notification timestamp to avoid duplicates
+    DateTime? lastNotificationTime;
+    
+    // Listen to new notifications for this user
+    _firestore
+        .collection('notifications')
+        .where('userId', isEqualTo: user.uid)
+        .orderBy('createdAt', descending: true)
+        .limit(10) // Monitor last 10 notifications to catch new ones
+        .snapshots()
+        .listen((snapshot) {
+      print('Notification snapshot received: ${snapshot.docs.length} notifications');
+      
+      for (var change in snapshot.docChanges) {
+        if (change.type == DocumentChangeType.added) {
+          final data = change.doc.data()!;
+          final notification = AppNotification.fromFirestore(data, change.doc.id);
+          
+          // Only show notification if it's new (created in the last 30 seconds)
+          final notificationAge = DateTime.now().difference(notification.createdAt);
+          final isVeryRecent = notificationAge.inSeconds < 30;
+          
+          print('New notification detected:');
+          print('  ID: ${notification.id}');
+          print('  Type: ${notification.type}');
+          print('  Title: ${notification.title}');
+          print('  Created: ${notification.createdAt}');
+          print('  Age: ${notificationAge.inSeconds} seconds');
+          print('  Is very recent: $isVeryRecent');
+          
+          if (isVeryRecent && (lastNotificationTime == null || notification.createdAt.isAfter(lastNotificationTime!))) {
+            lastNotificationTime = notification.createdAt;
+            
+            // Show local notification with high priority for system-level alert
+            _showSystemNotification(
+              id: notification.id.hashCode,
+              title: notification.title,
+              body: notification.body,
+              payload: _buildPayload(notification),
+            );
+            
+            print('✓ System push notification displayed for: ${notification.title}');
+          } else {
+            print('✗ Notification skipped (not recent enough or duplicate)');
+          }
+        }
+      }
+    }, onError: (error) {
+      print('Error in notification listener: $error');
+    });
+  }
+  
+  // Show system-level push notification with full alerts
+  Future<void> _showSystemNotification({
+    required int id,
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    print('=== _showSystemNotification called ===');
+    print('ID: $id');
+    print('Title: $title');
+    print('Body: $body');
+    print('Payload: $payload');
+    
+    // Check if notifications are enabled
+    final prefs = await SharedPreferences.getInstance();
+    final notificationsEnabled = prefs.getBool('notificationsEnabled') ?? true;
+    if (!notificationsEnabled) {
+      print('✗ Notifications are disabled by user');
+      return;
+    }
+    
+    print('✓ Notifications are enabled');
+
+    const androidDetails = AndroidNotificationDetails(
+      'edutrack_channel',
+      'EduTrack Notifications',
+      channelDescription: 'Notifications for tasks, events, and updates',
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: true,
+      enableVibration: true,
+      enableLights: true,
+      playSound: true,
+      ticker: 'EduTrack Notification',
+      visibility: NotificationVisibility.public,
+      fullScreenIntent: true,
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      sound: 'default',
+      interruptionLevel: InterruptionLevel.timeSensitive,
+    );
+
+    const notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    try {
+      await _localNotifications.show(
+        id,
+        title,
+        body,
+        notificationDetails,
+        payload: payload,
+      );
+      print('✓ Notification displayed successfully');
+    } catch (e) {
+      print('✗ Error displaying notification: $e');
+    }
+  }
+  
+  // Build payload string from notification data
+  String _buildPayload(AppNotification notification) {
+    switch (notification.type) {
+      case NotificationType.qnaResponse:
+        return 'qna:${notification.data['postId'] ?? ''}';
+      case NotificationType.todoReminder:
+        return 'task:${notification.data['taskId'] ?? ''}';
+      case NotificationType.calendarReminder:
+        return 'calendar:${notification.data['eventId'] ?? ''}';
+      default:
+        return 'notification:${notification.id}';
+    }
   }
 
   // Save FCM token to Firestore
@@ -133,11 +295,12 @@ class NotificationService {
     final data = message.data;
 
     if (notification != null) {
-      showLocalNotification(
+      // Show system-level notification for FCM messages
+      _showSystemNotification(
         id: message.messageId.hashCode,
         title: notification.title ?? 'EduTrack',
         body: notification.body ?? '',
-        payload: data.toString(),
+        payload: data['type'] != null ? '${data['type']}:${data['postId'] ?? data['taskId'] ?? data['eventId'] ?? ''}' : null,
       );
     }
   }
@@ -499,16 +662,91 @@ class NotificationService {
   }) async {
     final currentUserId = FirebaseAuth.instance.currentUser?.uid;
     
+    print('=== QnA Response Notification ===');
+    print('Post Owner ID: $postOwnerId');
+    print('Question Title: $questionTitle');
+    print('Responder Name: $responderName');
+    print('Current User ID: $currentUserId');
+    
     // Don't notify if the responder is the post owner (self-reply)
     if (currentUserId == postOwnerId) {
+      print('✗ Skipping notification: Self-reply detected');
       return;
     }
     
-    // Note: Notification will be handled by ActivityMonitorService
-    // which monitors replies in real-time and shows local notifications
-    // This prevents double notifications
-    print('Q&A response logged: $responderName replied to "$questionTitle"');
-    print('ActivityMonitorService will handle the notification display');
+    try {
+      print('Creating Firestore notification record...');
+      
+      // Create Firestore notification record for the question owner
+      final notificationId = await createNotification(
+        userId: postOwnerId,
+        type: NotificationType.qnaResponse,
+        title: 'New Reply to Your Question',
+        body: '$responderName replied to "$questionTitle"',
+        data: {
+          'postId': postId,
+          'questionTitle': questionTitle,
+          'responderName': responderName,
+          'responderId': currentUserId ?? '',
+        },
+      );
+      
+      print('✓ Firestore notification created with ID: $notificationId');
+      
+      // Send FCM push notification to question owner's device
+      await _sendFCMNotification(
+        userId: postOwnerId,
+        title: 'New Reply to Your Question',
+        body: '$responderName replied to "$questionTitle"',
+        data: {
+          'type': 'qna',
+          'postId': postId,
+          'questionTitle': questionTitle,
+        },
+      );
+      
+      print('✓ Q&A response notification process completed');
+    } catch (e, stackTrace) {
+      print('✗ Error sending Q&A response notification: $e');
+      print('Stack trace: $stackTrace');
+      // Don't throw - allow reply to succeed even if notification fails
+    }
+  }
+  
+  // Send FCM notification to specific user
+  Future<void> _sendFCMNotification({
+    required String userId,
+    required String title,
+    required String body,
+    required Map<String, dynamic> data,
+  }) async {
+    try {
+      // Get user's FCM token from Firestore
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      final fcmToken = userDoc.data()?['fcmToken'] as String?;
+      
+      if (fcmToken == null) {
+        print('No FCM token found for user $userId');
+        return;
+      }
+      
+      // Note: Actual FCM sending requires Firebase Admin SDK or HTTP API
+      // This would typically be done through Cloud Functions
+      // For now, we'll create a trigger document that Cloud Functions can process
+      await _firestore.collection('fcm_queue').add({
+        'userId': userId,
+        'fcmToken': fcmToken,
+        'title': title,
+        'body': body,
+        'data': data,
+        'createdAt': FieldValue.serverTimestamp(),
+        'processed': false,
+      });
+      
+      print('FCM notification queued for user $userId');
+    } catch (e) {
+      print('Error sending FCM notification: $e');
+    }
   }
 
   // Notify students about presented question

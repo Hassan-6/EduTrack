@@ -141,10 +141,17 @@ class _CameraOverlayScreenState extends State<CameraOverlayScreen> {
           ),
         );
         
-        // Pop back after 1 second
+        // Pop back after 1 second with photo path and location data
         Future.delayed(const Duration(seconds: 1), () {
           if (mounted) {
-            Navigator.of(context).pop(image.path);
+            Navigator.of(context).pop({
+              'photoPath': image.path,
+              'latitude': _locationData!.latitude,
+              'longitude': _locationData!.longitude,
+              'altitude': _locationData!.altitude,
+              'address': _locationData!.address,
+              'accuracy': _locationData!.accuracy,
+            });
           }
         });
       }

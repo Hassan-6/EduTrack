@@ -1315,6 +1315,7 @@ class FirebaseService {
         'isActive': true,
         'verifiedStudents': [],
         'studentPhotos': {}, // Initialize empty map for photos
+        'studentLocations': {}, // Initialize empty map for locations
       });
       
       print('Attendance session created with ID: ${docRef.id}');
@@ -1413,12 +1414,64 @@ class FirebaseService {
     }
   }
 
-  /// Update attendance session with photo URL
+  /// Update attendance session with location data only (no photo)
+  static Future<void> updateAttendanceLocation({
+    required String courseId,
+    required String studentId,
+    required String otp,
+    required Map<String, dynamic> locationData,
+  }) async {
+    try {
+      print('=== UPDATE ATTENDANCE LOCATION START ===');
+      print('Course ID: $courseId');
+      print('Student ID: $studentId');
+      print('OTP: $otp');
+      print('Location Data: $locationData');
+      
+      // Find the session with matching OTP
+      QuerySnapshot sessions = await _firebaseFirestore
+          .collection('courses')
+          .doc(courseId)
+          .collection('attendance')
+          .where('otp', isEqualTo: otp)
+          .where('isActive', isEqualTo: true)
+          .limit(1)
+          .get();
+      
+      print('Found ${sessions.docs.length} sessions to update');
+      
+      if (sessions.docs.isEmpty) {
+        print('ERROR: No active session found to update location');
+        return;
+      }
+
+      final sessionDoc = sessions.docs.first;
+      print('Updating session: ${sessionDoc.id}');
+      
+      // Update location data for this student
+      Map<String, dynamic> updateData = {
+        'studentLocations.$studentId': locationData,
+      };
+      
+      print('Update data to be saved: $updateData');
+      
+      await sessionDoc.reference.update(updateData);
+      
+      print('SUCCESS: Attendance location updated for student: $studentId');
+      print('=== UPDATE ATTENDANCE LOCATION END ===');
+    } catch (e) {
+      print('ERROR updating attendance location: $e');
+      print('Stack trace: ${StackTrace.current}');
+    }
+  }
+
+  /// Update attendance session with photo URL and location data
   static Future<void> updateAttendancePhoto({
     required String courseId,
     required String studentId,
     required String otp,
     required String photoURL,
+    Map<String, dynamic>? locationData,
   }) async {
     try {
       print('=== UPDATE ATTENDANCE PHOTO START ===');
@@ -1447,12 +1500,20 @@ class FirebaseService {
       final sessionDoc = sessions.docs.first;
       print('Updating session: ${sessionDoc.id}');
       
-      // Update the photo URL for this student
-      await sessionDoc.reference.update({
+      // Update the photo URL and location data for this student
+      Map<String, dynamic> updateData = {
         'studentPhotos.$studentId': photoURL,
-      });
+      };
       
-      print('SUCCESS: Attendance photo updated for student: $studentId');
+      // Add location data if provided
+      if (locationData != null) {
+        print('Adding location data for student: $studentId');
+        updateData['studentLocations.$studentId'] = locationData;
+      }
+      
+      await sessionDoc.reference.update(updateData);
+      
+      print('SUCCESS: Attendance photo and location updated for student: $studentId');
       print('=== UPDATE ATTENDANCE PHOTO END ===');
     } catch (e) {
       print('ERROR updating attendance photo: $e');

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -537,7 +538,7 @@ class _NotesScreenState extends State<NotesScreen> {
           ),
           const SizedBox(height: 8),
           FormattedTextWidget(
-            text: note.content,
+            text: _truncateContent(note.content, 10),
             baseStyle: GoogleFonts.inter(
               color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
               fontSize: 14,
@@ -727,6 +728,14 @@ class _NotesScreenState extends State<NotesScreen> {
       return '${dateTime.month}/${dateTime.day}/${dateTime.year}';
     }
   }
+  
+  String _truncateContent(String content, int maxLines) {
+    final lines = content.split('\n');
+    if (lines.length <= maxLines) {
+      return content;
+    }
+    return lines.take(maxLines).join('\n') + '...';
+  }
 }
 
 // ==================== JOURNAL CONTENT WIDGET ====================
@@ -787,7 +796,8 @@ class _JournalContentState extends State<JournalContent> {
     }
   }
 
-  void _toggleFavoritesFilter() {
+  void _toggleFavoritesFilter() async {
+    await _saveChanges();
     setState(() {
       _showFavoritesOnly = !_showFavoritesOnly;
       _updateDisplayedEntries();
@@ -798,15 +808,21 @@ class _JournalContentState extends State<JournalContent> {
 
   void _loadCurrentEntry() {
     if (_displayedEntries.isNotEmpty && _currentPage < _displayedEntries.length) {
-      _titleController.text = _displayedEntries[_currentPage].title;
-      _contentController.text = _displayedEntries[_currentPage].content;
+      final entry = _displayedEntries[_currentPage];
+      // Find the entry in the main journal list to get the latest version
+      final actualEntry = _journalEntries.firstWhere(
+        (e) => e.id == entry.id,
+        orElse: () => entry,
+      );
+      _titleController.text = actualEntry.title;
+      _contentController.text = actualEntry.content;
     } else {
       _titleController.clear();
       _contentController.clear();
     }
   }
 
-  Future<void> _saveChanges() async {
+  Future<void> _saveChanges({bool showFeedback = false}) async {
     if (_displayedEntries.isEmpty || _currentPage >= _displayedEntries.length) return;
 
     final displayedEntry = _displayedEntries[_currentPage];
@@ -820,24 +836,73 @@ class _JournalContentState extends State<JournalContent> {
         title: _titleController.text,
         content: _contentController.text,
       );
+      
+      // Update the local entry with the new content
+      final updatedEntry = actualEntry.copyWith(
+        title: _titleController.text,
+        content: _contentController.text,
+      );
+      
+      setState(() {
+        final actualIdx = _journalEntries.indexOf(actualEntry);
+        if (actualIdx != -1) {
+          _journalEntries[actualIdx] = updatedEntry;
+        }
+        _updateDisplayedEntries();
+      });
+      
+      if (mounted && showFeedback) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Journal entry saved'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
     } catch (e) {
       print('Error saving journal entry: $e');
+      if (mounted && showFeedback) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   Future<void> _addNewEntry() async {
+    // Save current entry before creating a new one
+    if (_displayedEntries.isNotEmpty && _currentPage < _displayedEntries.length) {
+      await _saveChanges();
+    }
+    
     try {
       await NotesService.createJournalEntry(
         title: '',
         content: '',
       );
-      _loadJournalEntries();
+      
+      // Reload entries and navigate to the newly created entry (last one)
+      final entries = await NotesService.getJournalEntries();
+      if (mounted) {
+        setState(() {
+          _journalEntries = entries;
+          _updateDisplayedEntries();
+          _currentPage = _displayedEntries.isEmpty ? 0 : _displayedEntries.length - 1;
+          _loadCurrentEntry();
+        });
+      }
       widget.onAddEntry();
     } catch (e) {
       print('Error creating journal entry: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error creating entry: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error creating entry: $e')),
+        );
+      }
     }
   }
 
@@ -952,7 +1017,6 @@ class _JournalContentState extends State<JournalContent> {
       _contentController.text = newText;
       _contentController.selection = TextSelection.collapsed(offset: cursorPosition + 3);
     }
-    _saveChanges();
   }
 
   @override
@@ -1134,8 +1198,6 @@ class _JournalContentState extends State<JournalContent> {
         ),
       );
     }
-    final entry = _displayedEntries[_currentPage];
-    final actualIndex = _journalEntries.indexOf(entry);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1150,7 +1212,6 @@ class _JournalContentState extends State<JournalContent> {
               children: [
                 TextField(
                   controller: _titleController,
-                  onChanged: (value) => _saveChanges(),
                   style: GoogleFonts.inter(
                     color: Theme.of(context).colorScheme.onBackground,
                     fontSize: 20,
@@ -1176,7 +1237,6 @@ class _JournalContentState extends State<JournalContent> {
                 TextField(
                   controller: _contentController,
                   focusNode: _contentFocusNode,
-                  onChanged: (value) => _saveChanges(),
                   maxLines: null,
                   keyboardType: TextInputType.multiline,
                   textAlignVertical: TextAlignVertical.top,
@@ -1227,6 +1287,7 @@ class _JournalContentState extends State<JournalContent> {
             )
           else
             _buildCompactToolbarButton(Icons.favorite_border, () {}),
+          _buildCompactToolbarButton(Icons.save, () => _saveChanges(showFeedback: true), color: Colors.green),
           _buildCompactToolbarButton(Icons.add, _addNewEntry),
           _buildCompactToolbarButton(Icons.delete_outline, _deleteCurrentEntry, color: Colors.red),
         ],
@@ -1298,10 +1359,6 @@ class _JournalContentState extends State<JournalContent> {
         ],
       ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
   @override

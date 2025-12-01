@@ -258,6 +258,14 @@ class AttendanceRecordScreen extends StatelessWidget {
     final rollNumber = student['rollNumber'] ?? 'N/A';
     final photoURL = student['photoURL'] ?? '';
     final studentId = student['studentId'] ?? student['id'];
+    final locationData = student['locationData'] as Map<String, dynamic>?;
+    
+    // Debug logging
+    print('=== BUILDING STUDENT CARD ===');
+    print('Student: $name ($rollNumber)');
+    print('Student data: $student');
+    print('Location data extracted: $locationData');
+    print('Location data type: ${locationData.runtimeType}');
     
     return InkWell(
       onTap: studentId != null
@@ -301,72 +309,117 @@ class AttendanceRecordScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Theme.of(context).dividerColor),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Serial number
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: course.color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Center(
-                child: Text(
-                  '$index',
-                  style: GoogleFonts.inter(
-                    color: course.color,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+            Row(
+              children: [
+                // Serial number
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: course.color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Student info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: GoogleFonts.inter(
-                      color: Theme.of(context).colorScheme.onSurface,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
+                  child: Center(
+                    child: Text(
+                      '$index',
+                      style: GoogleFonts.inter(
+                        color: course.color,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    rollNumber,
-                    style: GoogleFonts.inter(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                      fontSize: 13,
+                ),
+                const SizedBox(width: 12),
+                // Student info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: GoogleFonts.inter(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        rollNumber,
+                        style: GoogleFonts.inter(
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                          fontSize: 13,
+                        ),
+                      ),
+                      // Location data display
+                      const SizedBox(height: 6),
+                      if (locationData != null && locationData.isNotEmpty) ...[
+                        Row(
+                          children: [
+                            Icon(Icons.location_on, size: 12, color: Colors.green),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                locationData['address']?.toString() ?? 
+                                'Lat: ${locationData['latitude']}, Lng: ${locationData['longitude']}',
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  color: Colors.green.shade700,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (locationData['latitude'] != null && locationData['longitude'] != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              'Coords: ${(locationData['latitude'] as num).toStringAsFixed(4)}, ${(locationData['longitude'] as num).toStringAsFixed(4)}',
+                              style: GoogleFonts.inter(
+                                fontSize: 10,
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                              ),
+                            ),
+                          ),
+                      ] else
+                        Text(
+                          'Location: N/A',
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                // Photo icon if available
+                if (photoURL.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.photo_camera,
+                      color: Colors.blue,
+                      size: 20,
                     ),
                   ),
-                ],
-              ),
-            ),
-            // Photo icon if available
-            if (photoURL.isNotEmpty)
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.photo_camera,
-                  color: Colors.blue,
+                const SizedBox(width: 8),
+                // Check icon
+                Icon(
+                  Icons.check_circle,
+                  color: const Color(0xFF10B981),
                   size: 20,
                 ),
-              ),
-            const SizedBox(width: 8),
-            // Check icon
-            Icon(
-              Icons.check_circle,
-              color: const Color(0xFF10B981),
-              size: 20,
+              ],
             ),
           ],
         ),

@@ -87,6 +87,9 @@ class _TodoListScreenState extends State<TodoListScreen> {
       
       final tasks = await TaskService.getPendingTasks();
       
+      // Sort tasks by due date/time (earliest first)
+      tasks.sort((a, b) => a.dueDate.compareTo(b.dueDate));
+      
       setState(() {
         _pendingTasks = tasks;
         _filteredPendingTasks = tasks;
@@ -108,6 +111,9 @@ class _TodoListScreenState extends State<TodoListScreen> {
       });
       
       final tasks = await TaskService.getCompletedTasks();
+      
+      // Sort completed tasks by due date/time (earliest first)
+      tasks.sort((a, b) => a.dueDate.compareTo(b.dueDate));
       
       setState(() {
         _completedTasks = tasks;
@@ -254,11 +260,17 @@ class _TodoListScreenState extends State<TodoListScreen> {
                   );
                   
                   if (mounted) {
+                    // Sort results by due date/time
+                    final pendingResults = results.where((t) => !t.isCompleted).toList();
+                    final completedResults = results.where((t) => t.isCompleted).toList();
+                    pendingResults.sort((a, b) => a.dueDate.compareTo(b.dueDate));
+                    completedResults.sort((a, b) => a.dueDate.compareTo(b.dueDate));
+                    
                     setState(() {
                       _searchQuery = query;
                       _selectedCategory = selectedCategory ?? 'All';
-                      _filteredPendingTasks = results.where((t) => !t.isCompleted).toList();
-                      _filteredCompletedTasks = results.where((t) => t.isCompleted).toList();
+                      _filteredPendingTasks = pendingResults;
+                      _filteredCompletedTasks = completedResults;
                     });
                     Navigator.pop(context);
                   }
@@ -288,20 +300,28 @@ class _TodoListScreenState extends State<TodoListScreen> {
 
   String _formatDueDate(DateTime date) {
     final now = DateTime.now();
+
+    // Check if the actual date and time has passed
+    if (date.isBefore(now)) {
+      return 'Overdue';
+    }
+    
     final today = DateTime(now.year, now.month, now.day);
     final dateOnly = DateTime(date.year, date.month, date.day);
 
     if (dateOnly == today) {
-      return 'Due Today';
-    } else if (dateOnly.isBefore(today)) {
-      return 'Overdue';
+      return 'Today';
     } else if (dateOnly == today.add(const Duration(days: 1))) {
-      return 'Due Tomorrow';
+      return 'Tomorrow';
     } else if (dateOnly.isBefore(today.add(const Duration(days: 7)))) {
-      return 'Due ${DateFormat('EEEE').format(date)}';
+      return DateFormat('EEEE').format(date);
     } else {
-      return 'Due ${DateFormat('MMM d').format(date)}';
+      return DateFormat('MMM d').format(date);
     }
+  }
+  
+  String _formatDueTime(DateTime date) {
+    return DateFormat('h:mm a').format(date);
   }
 
   String _formatTimestamp(DateTime date) {
@@ -621,51 +641,76 @@ class _TodoListScreenState extends State<TodoListScreen> {
                 ),
               ),
               const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _formatDueDate(task.dueDate).contains('Overdue')
-                      ? Colors.red.withOpacity(0.1)
-                      : _formatDueDate(task.dueDate).contains('Today')
-                          ? Colors.orange.withOpacity(0.1)
-                          : Colors.blue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: _formatDueDate(task.dueDate).contains('Overdue')
-                        ? Colors.red
-                        : _formatDueDate(task.dueDate).contains('Today')
-                            ? Colors.orange
-                            : Colors.blue,
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.calendar_today,
-                      size: 12,
-                      color: _formatDueDate(task.dueDate).contains('Overdue')
-                          ? Colors.red
-                          : _formatDueDate(task.dueDate).contains('Today')
-                              ? Colors.orange
-                              : Colors.blue,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      _formatDueDate(task.dueDate),
-                      style: GoogleFonts.inter(
-                        color: _formatDueDate(task.dueDate).contains('Overdue')
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _formatDueDate(task.dueDate) == 'Overdue'
+                          ? Colors.red.withOpacity(0.1)
+                          : _formatDueDate(task.dueDate) == 'Today'
+                              ? Colors.orange.withOpacity(0.1)
+                              : Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _formatDueDate(task.dueDate) == 'Overdue'
                             ? Colors.red
-                            : _formatDueDate(task.dueDate).contains('Today')
+                            : _formatDueDate(task.dueDate) == 'Today'
                                 ? Colors.orange
                                 : Colors.blue,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                        width: 1,
                       ),
                     ),
-                  ],
-                ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.calendar_today,
+                          size: 12,
+                          color: _formatDueDate(task.dueDate) == 'Overdue'
+                              ? Colors.red
+                              : _formatDueDate(task.dueDate) == 'Today'
+                                  ? Colors.orange
+                                  : Colors.blue,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _formatDueDate(task.dueDate),
+                          style: GoogleFonts.inter(
+                            color: _formatDueDate(task.dueDate) == 'Overdue'
+                                ? Colors.red
+                                : _formatDueDate(task.dueDate) == 'Today'
+                                    ? Colors.orange
+                                    : Colors.blue,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.access_time,
+                        size: 12,
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _formatDueTime(task.dueDate),
+                        style: GoogleFonts.inter(
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ],
           ),
