@@ -9,7 +9,8 @@ import '../utils/calendar_event.dart';
 import '../services/notification_service.dart';
 
 class AddEntryScreen extends StatefulWidget {
-  const AddEntryScreen({super.key});
+  final CalendarEvent? event;
+  const AddEntryScreen({super.key, this.event});
 
   @override
   State<AddEntryScreen> createState() => _AddEntryScreenState();
@@ -25,12 +26,40 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   bool _isAllDay = false;
   EventType _selectedEventType = EventType.assignment;
   
-  bool _isStartAM = true;
-  bool _isEndAM = true;
   int _startHour = 8;
   int _startMinute = 0;
   int _endHour = 10;
   int _endMinute = 30;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.event != null) {
+      _titleController.text = widget.event!.title;
+      _descriptionController.text = widget.event!.description;
+      _selectedDate = widget.event!.date;
+      _selectedEventType = widget.event!.type;
+      _isAllDay = widget.event!.startTime == 'All Day';
+      
+      if (!_isAllDay && widget.event!.startTime.isNotEmpty) {
+        final startParts = widget.event!.startTime.split(':');
+        if (startParts.length == 2) {
+          _startHour = int.tryParse(startParts[0].trim()) ?? 8;
+          _startMinute = int.tryParse(startParts[1].trim()) ?? 0;
+          _startTime = TimeOfDay(hour: _startHour, minute: _startMinute);
+        }
+      }
+      
+      if (!_isAllDay && widget.event!.endTime.isNotEmpty) {
+        final endParts = widget.event!.endTime.split(':');
+        if (endParts.length == 2) {
+          _endHour = int.tryParse(endParts[0].trim()) ?? 10;
+          _endMinute = int.tryParse(endParts[1].trim()) ?? 30;
+          _endTime = TimeOfDay(hour: _endHour, minute: _endMinute);
+        }
+      }
+    }
+  }
 
   void _selectDate() async {
     final DateTime? picked = await showDatePicker(
@@ -55,7 +84,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       setState(() {
         _startTime = picked;
         _startHour = picked.hourOfPeriod;
-        _isStartAM = picked.period == DayPeriod.am;
       });
     }
   }
@@ -69,7 +97,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       setState(() {
         _endTime = picked;
         _endHour = picked.hourOfPeriod;
-        _isEndAM = picked.period == DayPeriod.am;
       });
     }
   }
@@ -82,8 +109,9 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       return;
     }
 
+    final isEditing = widget.event != null;
     final event = CalendarEvent(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: isEditing ? widget.event!.id : DateTime.now().millisecondsSinceEpoch.toString(),
       title: _titleController.text,
       description: _descriptionController.text,
       date: _selectedDate,
@@ -130,8 +158,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
         return const Color(0xFF5CD6C0);
       case EventType.exam:
         return const Color(0xFFFB923C);
-      default:
-        return const Color(0xFF4E9FEC);
     }
   }
 
@@ -143,8 +169,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
         return 'Event';
       case EventType.exam:
         return 'Exam';
-      default:
-        return 'Event';
     }
   }
 

@@ -115,6 +115,168 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
   }
 
+  Future<void> _deleteEvent(CalendarEvent event) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete Event',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        ),
+        content: Text('Are you sure you want to delete "${event.title}"?',
+          style: GoogleFonts.inter(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel', style: GoogleFonts.inter()),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: Text('Delete', style: GoogleFonts.inter()),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      // Delete from Firestore
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('calendar_events')
+          .doc(event.id)
+          .delete();
+
+      // Delete from device calendar
+      final syncService = CalendarSyncService();
+      await syncService.deleteEventFromDevice(event.id);
+
+      await _loadEvents();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Event "${event.title}" deleted successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting event: $e')),
+        );
+      }
+    }
+  }
+
+  void _editEvent(CalendarEvent event) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => AddEntryScreen(event: event)),
+    );
+
+    if (result != null && result is CalendarEvent) {
+      try {
+        final userId = FirebaseAuth.instance.currentUser?.uid;
+        if (userId == null) throw Exception('User not authenticated');
+
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .collection('calendar_events')
+            .doc(result.id)
+            .update({
+          'title': result.title,
+          'description': result.description,
+          'date': result.date,
+          'startTime': result.startTime,
+          'endTime': result.endTime,
+          'type': _eventTypeToString(result.type),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        // Update device calendar
+        final syncService = CalendarSyncService();
+        final syncEnabled = await syncService.isSyncEnabled();
+        
+        if (syncEnabled) {
+          DateTime startDateTime = result.date;
+          DateTime endDateTime = result.date;
+          
+          if (result.startTime != 'All Day' && result.startTime.isNotEmpty) {
+            final startParts = result.startTime.split(':');
+            if (startParts.length == 2) {
+              final hour = int.tryParse(startParts[0].trim()) ?? 0;
+              final minute = int.tryParse(startParts[1].trim()) ?? 0;
+              startDateTime = DateTime(
+                result.date.year,
+                result.date.month,
+                result.date.day,
+                hour,
+                minute,
+              );
+            }
+          }
+          
+          if (result.endTime.isNotEmpty && result.endTime != 'All Day') {
+            final endParts = result.endTime.split(':');
+            if (endParts.length == 2) {
+              final hour = int.tryParse(endParts[0].trim()) ?? 0;
+              final minute = int.tryParse(endParts[1].trim()) ?? 0;
+              endDateTime = DateTime(
+                result.date.year,
+                result.date.month,
+                result.date.day,
+                hour,
+                minute,
+              );
+            }
+          } else {
+            endDateTime = DateTime(
+              result.date.year,
+              result.date.month,
+              result.date.day,
+              23,
+              59,
+            );
+          }
+
+          await syncService.updateEventOnDevice(
+            eventId: result.id,
+            title: result.title,
+            description: result.description,
+            startDate: startDateTime,
+            endDate: endDateTime,
+          );
+        }
+
+        await _loadEvents();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Event "${result.title}" updated successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error updating event: $e')),
+          );
+        }
+      }
+    }
+  }
+
   void _addNewEvent() async {
     final result = await Navigator.push(
       context,
@@ -580,25 +742,71 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Widget _buildEventItem(CalendarEvent event) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).dividerColor),
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).brightness == Brightness.dark 
-                ? Colors.black.withOpacity(0.3) 
-                : Colors.black.withOpacity(0.05),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
+    return InkWell(
+      onTap: () {
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: Colors.transparent,
+          builder: (context) => Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).dividerColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                ListTile(
+                  leading: Icon(Icons.edit, color: Theme.of(context).primaryColor),
+                  title: Text('Edit Event', style: GoogleFonts.inter()),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _editEvent(event);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.delete, color: Colors.red),
+                  title: Text('Delete Event', style: GoogleFonts.inter(color: Colors.red)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _deleteEvent(event);
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
           ),
-        ],
-      ),
-      child: Row(
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Theme.of(context).dividerColor),
+          boxShadow: [
+            BoxShadow(
+              color: Theme.of(context).brightness == Brightness.dark 
+                  ? Colors.black.withOpacity(0.3) 
+                  : Colors.black.withOpacity(0.05),
+              blurRadius: 2,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Row(
         children: [
           Container(
             width: 32,
@@ -655,6 +863,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

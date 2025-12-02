@@ -154,6 +154,59 @@ class CalendarSyncService {
     }
   }
 
+  // Update event on device calendar
+  Future<String?> updateEventOnDevice({
+    required String eventId,
+    required String title,
+    required String description,
+    required DateTime startDate,
+    required DateTime endDate,
+    String? location,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final syncEnabled = prefs.getBool('calendarSyncEnabled') ?? false;
+      
+      if (!syncEnabled) {
+        print('Calendar sync is disabled');
+        return null;
+      }
+
+      if (!_initialized) {
+        final initialized = await initialize();
+        if (!initialized) return null;
+      }
+
+      if (_selectedCalendarId == null) {
+        print('No calendar selected');
+        return null;
+      }
+
+      final event = Event(
+        _selectedCalendarId,
+        eventId: eventId,
+        title: title,
+        description: description,
+        start: tz.TZDateTime.from(startDate, tz.local),
+        end: tz.TZDateTime.from(endDate, tz.local),
+        location: location,
+      );
+
+      final updateResult = await _deviceCalendarPlugin.createOrUpdateEvent(event);
+      
+      if (updateResult?.isSuccess == true && updateResult?.data != null) {
+        print('Event updated on device calendar: ${updateResult!.data}');
+        return updateResult.data;
+      } else {
+        print('Failed to update event: ${updateResult?.errors}');
+        return null;
+      }
+    } catch (e) {
+      print('Error updating event on device: $e');
+      return null;
+    }
+  }
+
   // Delete event from device calendar
   Future<bool> deleteEventFromDevice(String eventId) async {
     try {
