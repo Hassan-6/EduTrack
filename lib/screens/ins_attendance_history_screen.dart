@@ -229,6 +229,7 @@ class _InsAttendanceHistoryScreenState extends State<InsAttendanceHistoryScreen>
     final latitude = locationData['latitude'] as double?;
     final longitude = locationData['longitude'] as double?;
     final accuracy = locationData['accuracy'] as double?;
+    final heading = locationData['heading'] as double?;
     final timestamp = locationData['timestamp'] as String?;
 
     return Column(
@@ -262,6 +263,13 @@ class _InsAttendanceHistoryScreenState extends State<InsAttendanceHistoryScreen>
             style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
           ),
         ],
+        if (heading != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            'Heading: ${heading.toStringAsFixed(0)}° ${_getCompassDirection(heading)}',
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+          ),
+        ],
         if (timestamp != null) ...[
           const SizedBox(height: 2),
           Text(
@@ -281,6 +289,21 @@ class _InsAttendanceHistoryScreenState extends State<InsAttendanceHistoryScreen>
     } catch (e) {
       return timestamp;
     }
+  }
+
+  /// Get compass direction from heading (N, NE, E, SE, S, SW, W, NW)
+  String _getCompassDirection(double heading) {
+    const directions = [
+      'N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
+      'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'
+    ];
+    
+    // Normalize heading to 0-360
+    final normalizedHeading = ((heading % 360) + 360) % 360;
+    
+    // Each direction covers 22.5 degrees (360 / 16)
+    final index = ((normalizedHeading + 11.25) / 22.5).toInt() % 16;
+    return directions[index];
   }
 
   /// Show photo in a dialog

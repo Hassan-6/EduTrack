@@ -1870,6 +1870,61 @@ class FirebaseService {
     }
   }
 
+  /// Update a question
+  static Future<bool> updateQuestion({
+    required String courseId,
+    required String questionId,
+    required String title,
+    required String content,
+  }) async {
+    try {
+      await _firebaseFirestore
+          .collection('courses')
+          .doc(courseId)
+          .collection('questions')
+          .doc(questionId)
+          .update({
+        'title': title,
+        'content': content,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      print('Question updated: $questionId');
+      return true;
+    } catch (e) {
+      print('Error updating question: $e');
+      return false;
+    }
+  }
+
+  /// Update a reply
+  static Future<bool> updateReply({
+    required String courseId,
+    required String questionId,
+    required String replyId,
+    required String content,
+  }) async {
+    try {
+      await _firebaseFirestore
+          .collection('courses')
+          .doc(courseId)
+          .collection('questions')
+          .doc(questionId)
+          .collection('replies')
+          .doc(replyId)
+          .update({
+        'content': content,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      print('Reply updated: $replyId');
+      return true;
+    } catch (e) {
+      print('Error updating reply: $e');
+      return false;
+    }
+  }
+
   /// Delete a question
   static Future<bool> deleteQuestion({
     required String courseId,

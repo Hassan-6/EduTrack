@@ -553,25 +553,61 @@ class _InsAttendanceScreenState extends State<InsAttendanceScreen> {
                                     value: _selectedCourseId,
                                     isExpanded: true,
                                     dropdownColor: Colors.white,
+                                    menuMaxHeight: 400,
+                                    isDense: false,
+                                    icon: Icon(Icons.arrow_drop_down, color: Colors.grey[700]),
                                     onChanged: (String? newValue) {
                                       setState(() {
                                         _selectedCourseId = newValue!;
                                         _loadCourseStudentCount(newValue);
                                       });
                                     },
+                                    selectedItemBuilder: (BuildContext context) {
+                                      return _courses.map((course) {
+                                        return Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                            child: Text(
+                                              course['title'] ?? 'Unnamed Course',
+                                              style: GoogleFonts.inter(
+                                                color: Colors.black87,
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                                height: 1.3,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        );
+                                      }).toList();
+                                    },
                                     items: _courses.map((course) {
                                       return DropdownMenuItem<String>(
                                         value: course['id'] as String,
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                                          child: Text(
-                                            course['title'] ?? 'Unnamed Course',
-                                            style: GoogleFonts.inter(
-                                              color: Colors.black87,
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w500,
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            border: Border(
+                                              bottom: BorderSide(
+                                                color: Colors.grey[200]!,
+                                                width: 1,
+                                              ),
                                             ),
-                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                            child: Text(
+                                              course['title'] ?? 'Unnamed Course',
+                                              style: GoogleFonts.inter(
+                                                color: Colors.black87,
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w500,
+                                                height: 1.3,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
                                           ),
                                         ),
                                       );

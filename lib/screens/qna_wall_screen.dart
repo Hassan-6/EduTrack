@@ -660,14 +660,57 @@ class _QAWallScreenState extends State<QAWallScreen> {
                     ),
                     const SizedBox(height: 12),
                     
-                    // Question title
-                    Text(
-                      question['title'] ?? '',
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
+                    // Question title with edit/delete menu
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            question['title'] ?? '',
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        if (authorId == _userId)
+                          PopupMenuButton<String>(
+                            icon: Icon(
+                              Icons.more_vert,
+                              size: 20,
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                            ),
+                            onSelected: (value) {
+                              if (value == 'edit') {
+                                _showEditQuestionDialog(question);
+                              } else if (value == 'delete') {
+                                _showDeleteQuestionDialog(question);
+                              }
+                            },
+                            itemBuilder: (context) => [
+                              PopupMenuItem(
+                                value: 'edit',
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.edit, size: 18),
+                                    const SizedBox(width: 8),
+                                    Text('Edit', style: GoogleFonts.inter()),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.delete, size: 18, color: Colors.red),
+                                    const SizedBox(width: 8),
+                                    Text('Delete', style: GoogleFonts.inter(color: Colors.red)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
                     ),
                     if (question['content'] != null && question['content'].isNotEmpty) ...[
                       const SizedBox(height: 8),
@@ -707,7 +750,12 @@ class _QAWallScreenState extends State<QAWallScreen> {
                     // Replies
                     if (replies.isNotEmpty) ...[
                       const Divider(height: 24),
-                      ...replies.map((reply) => _buildReplyItem(reply, isDark)),
+                      ...replies.map((reply) {
+                        // Add courseId and questionId to reply for edit/delete
+                        reply['courseId'] = courseId;
+                        reply['questionId'] = question['id'];
+                        return _buildReplyItem(reply, isDark);
+                      }),
                     ],
                   ],
                 ),
@@ -793,17 +841,291 @@ class _QAWallScreenState extends State<QAWallScreen> {
                 ),
               ),
               const SizedBox(height: 6),
-              Text(
-                reply['content'] ?? '',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      reply['content'] ?? '',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                      ),
+                    ),
+                  ),
+                  if (authorId == _userId)
+                    PopupMenuButton<String>(
+                      icon: Icon(
+                        Icons.more_vert,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                      ),
+                      onSelected: (value) {
+                        if (value == 'edit') {
+                          _showEditReplyDialog(reply);
+                        } else if (value == 'delete') {
+                          _showDeleteReplyDialog(reply);
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.edit, size: 18),
+                              const SizedBox(width: 8),
+                              Text('Edit', style: GoogleFonts.inter()),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.delete, size: 18, color: Colors.red),
+                              const SizedBox(width: 8),
+                              Text('Delete', style: GoogleFonts.inter(color: Colors.red)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
               ),
             ],
           ),
         );
       },
+    );
+  }
+
+  // Edit question dialog
+  void _showEditQuestionDialog(Map<String, dynamic> question) {
+    final titleController = TextEditingController(text: question['title'] ?? '');
+    final contentController = TextEditingController(text: question['content'] ?? '');
+    final courseId = question['courseId'] ?? '';
+    final questionId = question['id'] ?? '';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Edit Question', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleController,
+                decoration: InputDecoration(
+                  labelText: 'Question Title',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                maxLines: 1,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: contentController,
+                decoration: InputDecoration(
+                  labelText: 'Question Details',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                maxLines: 5,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: GoogleFonts.inter()),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final title = titleController.text.trim();
+              final content = contentController.text.trim();
+
+              if (title.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter a question title')),
+                );
+                return;
+              }
+
+              final success = await FirebaseService.updateQuestion(
+                courseId: courseId,
+                questionId: questionId,
+                title: title,
+                content: content,
+              );
+
+              if (success) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Question updated successfully')),
+                );
+                _loadQuestions();
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Failed to update question')),
+                );
+              }
+            },
+            child: Text('Update', style: GoogleFonts.inter()),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Delete question dialog
+  void _showDeleteQuestionDialog(Map<String, dynamic> question) {
+    final courseId = question['courseId'] ?? '';
+    final questionId = question['id'] ?? '';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete Question', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+        content: Text(
+          'Are you sure you want to delete this question? This will also delete all replies.',
+          style: GoogleFonts.inter(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: GoogleFonts.inter()),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final success = await FirebaseService.deleteQuestion(
+                courseId: courseId,
+                questionId: questionId,
+              );
+
+              if (success) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Question deleted successfully')),
+                );
+                _loadQuestions();
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Failed to delete question')),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: Text('Delete', style: GoogleFonts.inter(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Edit reply dialog
+  void _showEditReplyDialog(Map<String, dynamic> reply) {
+    final contentController = TextEditingController(text: reply['content'] ?? '');
+    final courseId = reply['courseId'] ?? '';
+    final questionId = reply['questionId'] ?? '';
+    final replyId = reply['id'] ?? '';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Edit Reply', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+        content: TextField(
+          controller: contentController,
+          decoration: InputDecoration(
+            labelText: 'Reply Content',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          maxLines: 5,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: GoogleFonts.inter()),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final content = contentController.text.trim();
+
+              if (content.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter reply content')),
+                );
+                return;
+              }
+
+              final success = await FirebaseService.updateReply(
+                courseId: courseId,
+                questionId: questionId,
+                replyId: replyId,
+                content: content,
+              );
+
+              if (success) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Reply updated successfully')),
+                );
+                _loadQuestions();
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Failed to update reply')),
+                );
+              }
+            },
+            child: Text('Update', style: GoogleFonts.inter()),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Delete reply dialog
+  void _showDeleteReplyDialog(Map<String, dynamic> reply) {
+    final courseId = reply['courseId'] ?? '';
+    final questionId = reply['questionId'] ?? '';
+    final replyId = reply['id'] ?? '';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete Reply', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+        content: Text(
+          'Are you sure you want to delete this reply?',
+          style: GoogleFonts.inter(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: GoogleFonts.inter()),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final success = await FirebaseService.deleteReply(
+                courseId: courseId,
+                questionId: questionId,
+                replyId: replyId,
+              );
+
+              if (success) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Reply deleted successfully')),
+                );
+                _loadQuestions();
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Failed to delete reply')),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: Text('Delete', style: GoogleFonts.inter(color: Colors.white)),
+          ),
+        ],
+      ),
     );
   }
 }
