@@ -218,10 +218,15 @@ class _QAWallScreenState extends State<QAWallScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
+                isExpanded: true,
                 items: _userCourses.map((course) {
                   return DropdownMenuItem<String>(
                     value: course['id'] as String,
-                    child: Text(course['title'] as String, style: GoogleFonts.inter(fontSize: 14)),
+                    child: Text(
+                      course['title'] as String,
+                      style: GoogleFonts.inter(fontSize: 14),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   );
                 }).toList(),
                 onChanged: (value) => selectedCourse = value,
@@ -640,23 +645,30 @@ class _QAWallScreenState extends State<QAWallScreen> {
                               ],
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF6366F1).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              courseName,
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                color: const Color(0xFF6366F1),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
                         ],
                       ),
+                    ),
+                    const SizedBox(height: 8),
+                    
+                    // Course tag
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF6366F1).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            courseName,
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: const Color(0xFF6366F1),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     
@@ -824,12 +836,17 @@ class _QAWallScreenState extends State<QAWallScreen> {
                       },
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      authorName,
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).colorScheme.onSurface,
+                    Flexible(
+                      child: Text(
+                        authorName,
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        maxLines: 2,
+                        softWrap: true,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -996,21 +1013,26 @@ class _QAWallScreenState extends State<QAWallScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
+              Navigator.pop(context); // Close dialog first
+              
               final success = await FirebaseService.deleteQuestion(
                 courseId: courseId,
                 questionId: questionId,
               );
 
               if (success) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Question deleted successfully')),
-                );
-                _loadQuestions();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Question deleted successfully')),
+                  );
+                  await _loadQuestions();
+                }
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Failed to delete question')),
-                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Failed to delete question')),
+                  );
+                }
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -1103,6 +1125,8 @@ class _QAWallScreenState extends State<QAWallScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
+              Navigator.pop(context); // Close dialog first
+              
               final success = await FirebaseService.deleteReply(
                 courseId: courseId,
                 questionId: questionId,
@@ -1110,15 +1134,18 @@ class _QAWallScreenState extends State<QAWallScreen> {
               );
 
               if (success) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Reply deleted successfully')),
-                );
-                _loadQuestions();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Reply deleted successfully')),
+                  );
+                  await _loadQuestions();
+                }
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Failed to delete reply')),
-                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Failed to delete reply')),
+                  );
+                }
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
