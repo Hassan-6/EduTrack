@@ -355,39 +355,10 @@ class AttendanceRecordScreen extends StatelessWidget {
                           fontSize: 13,
                         ),
                       ),
-                      // Location data display
+                      // Location data display - comprehensive
                       const SizedBox(height: 6),
-                      if (locationData != null && locationData.isNotEmpty) ...[
-                        Row(
-                          children: [
-                            Icon(Icons.location_on, size: 12, color: Colors.green),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                locationData['address']?.toString() ?? 
-                                'Lat: ${locationData['latitude']}, Lng: ${locationData['longitude']}',
-                                style: GoogleFonts.inter(
-                                  fontSize: 11,
-                                  color: Colors.green.shade700,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (locationData['latitude'] != null && locationData['longitude'] != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: Text(
-                              'Coords: ${(locationData['latitude'] as num).toStringAsFixed(4)}, ${(locationData['longitude'] as num).toStringAsFixed(4)}',
-                              style: GoogleFonts.inter(
-                                fontSize: 10,
-                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                              ),
-                            ),
-                          ),
-                      ] else
+                      if (locationData != null && locationData.isNotEmpty) ..._buildLocationDetails(locationData, context)
+                      else
                         Text(
                           'Location: N/A',
                           style: GoogleFonts.inter(
@@ -522,5 +493,138 @@ class AttendanceRecordScreen extends StatelessWidget {
     } else {
       return const Color(0xFFEF4444); // Red
     }
+  }
+
+  List<Widget> _buildLocationDetails(Map<String, dynamic> locationData, BuildContext context) {
+    final address = locationData['address'] ?? 'N/A';
+    final latitude = locationData['latitude'];
+    final longitude = locationData['longitude'];
+    final altitude = locationData['altitude'];
+    final accuracy = locationData['accuracy'];
+    final speed = locationData['speed'];
+    final heading = locationData['heading'];
+    final timestamp = locationData['timestamp'];
+    final isMocked = locationData['isMocked'] ?? false;
+
+    return [
+      // Address with icon
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            isMocked ? Icons.warning_amber_rounded : Icons.location_on,
+            size: 12,
+            color: isMocked ? Colors.orange[700] : Colors.green[700],
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              address != 'N/A' ? address : 'Lat: ${latitude?.toStringAsFixed(6) ?? 'N/A'}, Long: ${longitude?.toStringAsFixed(6) ?? 'N/A'}',
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                color: isMocked ? Colors.orange[700] : Colors.green.shade700,
+                fontWeight: FontWeight.w500,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+      // Detailed location info
+      Padding(
+        padding: const EdgeInsets.only(left: 16, top: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (latitude != null && longitude != null)
+              Text(
+                'Coordinates: ${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}',
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                ),
+              ),
+            if (altitude != null)
+              Text(
+                'Altitude: ${altitude.toStringAsFixed(1)} m',
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                ),
+              ),
+            if (accuracy != null)
+              Text(
+                'Accuracy: ±${accuracy.toStringAsFixed(1)} m',
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                ),
+              ),
+            if (speed != null && speed > 0)
+              Text(
+                'Speed: ${(speed * 3.6).toStringAsFixed(1)} km/h',
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                ),
+              ),
+            if (heading != null)
+              Text(
+                'Heading: ${heading.toStringAsFixed(0)}° ${_getCompassDirection(heading)}',
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                ),
+              ),
+            if (timestamp != null)
+              Text(
+                'Captured: ${_formatTimestamp(timestamp)}',
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                ),
+              ),
+            if (isMocked)
+              Text(
+                '⚠ Mocked Location',
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  color: Colors.orange[700],
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  String _formatTimestamp(dynamic timestamp) {
+    try {
+      DateTime dt;
+      if (timestamp is String) {
+        dt = DateTime.parse(timestamp);
+      } else if (timestamp is DateTime) {
+        dt = timestamp;
+      } else {
+        return 'N/A';
+      }
+      return '${dt.day}/${dt.month}/${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return 'N/A';
+    }
+  }
+
+  String _getCompassDirection(double heading) {
+    if (heading >= 337.5 || heading < 22.5) return 'N';
+    if (heading >= 22.5 && heading < 67.5) return 'NE';
+    if (heading >= 67.5 && heading < 112.5) return 'E';
+    if (heading >= 112.5 && heading < 157.5) return 'SE';
+    if (heading >= 157.5 && heading < 202.5) return 'S';
+    if (heading >= 202.5 && heading < 247.5) return 'SW';
+    if (heading >= 247.5 && heading < 292.5) return 'W';
+    if (heading >= 292.5 && heading < 337.5) return 'NW';
+    return '';
   }
 }

@@ -7,14 +7,42 @@ class CameraLocationData {
   final double altitude;
   final String address;
   final double accuracy;
-
+  final double? speed;
+  final double? speedAccuracy;
+  final double? heading;
+  final double? headingAccuracy;
+  final DateTime timestamp;
+  final bool isMocked;
+  
   CameraLocationData({
     required this.latitude,
     required this.longitude,
     required this.altitude,
     required this.address,
     required this.accuracy,
+    this.speed,
+    this.speedAccuracy,
+    this.heading,
+    this.headingAccuracy,
+    required this.timestamp,
+    this.isMocked = false,
   });
+  
+  Map<String, dynamic> toMap() {
+    return {
+      'latitude': latitude,
+      'longitude': longitude,
+      'altitude': altitude,
+      'address': address,
+      'accuracy': accuracy,
+      'speed': speed,
+      'speedAccuracy': speedAccuracy,
+      'heading': heading,
+      'headingAccuracy': headingAccuracy,
+      'timestamp': timestamp.toIso8601String(),
+      'isMocked': isMocked,
+    };
+  }
 }
 
 class CameraLocationService {
@@ -65,6 +93,12 @@ class CameraLocationService {
         altitude: position.altitude,
         address: address,
         accuracy: position.accuracy,
+        speed: position.speed,
+        speedAccuracy: position.speedAccuracy,
+        heading: position.heading,
+        headingAccuracy: position.headingAccuracy,
+        timestamp: position.timestamp,
+        isMocked: position.isMocked,
       );
     } catch (e) {
       print('Error getting location: $e');

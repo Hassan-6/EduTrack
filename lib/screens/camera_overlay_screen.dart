@@ -151,6 +151,12 @@ class _CameraOverlayScreenState extends State<CameraOverlayScreen> {
               'altitude': _locationData!.altitude,
               'address': _locationData!.address,
               'accuracy': _locationData!.accuracy,
+              'speed': _locationData!.speed,
+              'speedAccuracy': _locationData!.speedAccuracy,
+              'heading': _locationData!.heading,
+              'headingAccuracy': _locationData!.headingAccuracy,
+              'timestamp': _locationData!.timestamp.toIso8601String(),
+              'isMocked': _locationData!.isMocked,
             });
           }
         });

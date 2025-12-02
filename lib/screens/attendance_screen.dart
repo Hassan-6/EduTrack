@@ -92,7 +92,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           'altitude': result['altitude'],
           'address': result['address'],
           'accuracy': result['accuracy'],
-          'timestamp': DateTime.now().toIso8601String(),
+          'speed': result['speed'],
+          'speedAccuracy': result['speedAccuracy'],
+          'heading': result['heading'],
+          'headingAccuracy': result['headingAccuracy'],
+          'timestamp': result['timestamp'],
+          'isMocked': result['isMocked'],
         };
       });
       
@@ -603,7 +608,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             Text(
               title,
               style: GoogleFonts.inter(
-                color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
+                color: isCompleted ? Colors.black : Theme.of(context).colorScheme.onBackground, // Black when completed
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -612,7 +617,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             Text(
               subtitle,
               style: GoogleFonts.inter(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), // THEME: Dynamic text
+                color: isCompleted ? Colors.black87 : Theme.of(context).colorScheme.onSurface.withOpacity(0.6), // Dark when completed
                 fontSize: 12,
               ),
               textAlign: TextAlign.center,
