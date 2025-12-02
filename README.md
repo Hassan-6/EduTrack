@@ -13,7 +13,6 @@ EduTrack is a comprehensive educational management application built with Flutte
 - **Task & Assignment Tracking**: Create, manage, and complete academic tasks with due dates
 - **Calendar Integration**: Visual calendar with events, assignments, and deadlines
 - **Notes & Journal**: Create formatted notes with categories and maintain a personal journal
-- **QR Code Scanning**: Scan QR codes for course enrollment and attendance tracking
 - **GPS-Enabled Camera**: Take location-tagged photos for assignments and submissions
 - **Real-time Notifications**: Receive instant notifications for new assignments and announcements
 - **Progress Monitoring**: Track course completion and assignment submission status
@@ -52,7 +51,6 @@ EduTrack is a comprehensive educational management application built with Flutte
 ### Key Packages
 - **table_calendar** (^3.0.9): Interactive calendar widget
 - **camera** (^0.10.5): Camera functionality
-- **mobile_scanner** (^7.1.3): QR code scanning
 - **geolocator** (^11.0.1): GPS location services
 - **geocoding** (^2.1.1): Address geocoding
 - **permission_handler** (^11.0.1): Device permissions management
@@ -142,7 +140,7 @@ Enable the following Firebase services:
 ### Required Permissions
 
 The app requires the following permissions:
-- **Camera**: For taking photos and QR code scanning
+- **Camera**: For taking photos for verification
 - **Location**: For GPS-tagged photos and attendance tracking
 - **Notifications**: For receiving real-time updates
 - **Storage**: For saving images and files
@@ -185,9 +183,9 @@ The app requires the following permissions:
 ## 🎯 User Roles
 
 ### Student
-- Enroll in courses via QR codes
+- Enroll in courses via unique 6-digit codes
 - View assigned tasks and deadlines
-- Submit assignments with location tags
+- Submit attendance with location tags
 - Track personal progress
 - Receive instructor notifications
 
