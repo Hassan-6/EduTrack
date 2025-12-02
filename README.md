@@ -23,7 +23,7 @@ EduTrack is a comprehensive educational management application built with Flutte
 - **Assignment Distribution**: Create and assign tasks to enrolled students
 - **Student Monitoring**: Track student progress, activity, and submissions
 - **Announcements**: Send notifications to all students in a course
-- **QR Code Generation**: Generate unique QR codes for course enrollment
+- **Course Code Generation**: Generate unique 6-digit codes for course enrollment
 - **Attendance Tracking**: Monitor student attendance and engagement
 
 ### General Features
@@ -78,8 +78,7 @@ lib/
 │   ├── courses_screen.dart
 │   ├── tasks_screen.dart
 │   ├── notes_screen.dart
-│   ├── profile_screen.dart
-│   └── qr_code_screen.dart
+│   └── profile_screen.dart
 ├── services/                    # Business logic & API
 │   ├── firebase_service.dart
 │   ├── auth_provider.dart
@@ -230,8 +229,11 @@ This project is developed for educational purposes.
 
 ## 👨‍💻 Developer
 
-**Hassan-6**
+**Ghulam Hassan**
 - GitHub: [@Hassan-6](https://github.com/Hassan-6)
+
+**Oneeb Tariq**
+- GitHub: [@Raiden216](https://github.com/Raiden216)
 
 ## 📞 Support
 
