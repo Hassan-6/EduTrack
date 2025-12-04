@@ -216,12 +216,7 @@ class _PopupQuestionScreenState extends State<PopupQuestionScreen> {
         ),
         child: SafeArea(
           child: SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: MediaQuery.of(context).size.height - MediaQuery.of(context).padding.top - MediaQuery.of(context).padding.bottom,
-              ),
-              child: IntrinsicHeight(
-                child: Column(
+            child: Column(
             children: [
               // Header with back button
               Padding(
@@ -323,40 +318,39 @@ class _PopupQuestionScreenState extends State<PopupQuestionScreen> {
               const SizedBox(height: 32),
 
               // Answers
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor, // THEME: Dynamic card
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Theme.of(context).brightness == Brightness.dark 
-                            ? Colors.black.withOpacity(0.3) 
-                            : const Color(0x0C000000), // THEME: Adaptive shadow
-                        spreadRadius: 0,
-                        offset: const Offset(0, 1),
-                        blurRadius: 2,
-                      )
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        questionType == 'MCQ' ? 'Select your answer:' : 'Enter your answer:',
-                        style: GoogleFonts.inter(
-                          color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor, // THEME: Dynamic card
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Theme.of(context).brightness == Brightness.dark 
+                          ? Colors.black.withOpacity(0.3) 
+                          : const Color(0x0C000000), // THEME: Adaptive shadow
+                      spreadRadius: 0,
+                      offset: const Offset(0, 1),
+                      blurRadius: 2,
+                    )
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      questionType == 'MCQ' ? 'Select your answer:' : 'Enter your answer:',
+                      style: GoogleFonts.inter(
+                        color: Theme.of(context).colorScheme.onBackground, // THEME: Dynamic text
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                       ),
-                      const SizedBox(height: 16),
-                      Expanded(
-                        child: questionType == 'MCQ'
-                            ? ListView(
-                                children: answers.asMap().entries.map<Widget>((entry) {
+                    ),
+                    const SizedBox(height: 16),
+                    questionType == 'MCQ'
+                        ? Column(
+                            children: answers.asMap().entries.map<Widget>((entry) {
                                   final index = entry.key;
                                   final answer = entry.value;
                                   return GestureDetector(
@@ -421,34 +415,30 @@ class _PopupQuestionScreenState extends State<PopupQuestionScreen> {
                               ),
                                   );
                                 }).toList(),
-                              )
-                            : SingleChildScrollView(
-                                child: TextField(
-                                  enabled: !_hasSubmitted && !_isSubmitting,
-                                  controller: _textAnswerController,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _textAnswer = value;
-                                    });
-                                  },
-                                  maxLines: 5,
-                                  decoration: InputDecoration(
-                                    hintText: 'Type your answer here...',
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    filled: true,
-                                    fillColor: Theme.of(context).cardColor,
-                                  ),
-                                  style: GoogleFonts.inter(
-                                    color: Theme.of(context).colorScheme.onBackground,
-                                    fontSize: 16,
-                                  ),
-                                ),
+                          )
+                        : TextField(
+                            enabled: !_hasSubmitted && !_isSubmitting,
+                            controller: _textAnswerController,
+                            onChanged: (value) {
+                              setState(() {
+                                _textAnswer = value;
+                              });
+                            },
+                            maxLines: 5,
+                            decoration: InputDecoration(
+                              hintText: 'Type your answer here...',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                      ),
-                    ],
-                  ),
+                              filled: true,
+                              fillColor: Theme.of(context).cardColor,
+                            ),
+                            style: GoogleFonts.inter(
+                              color: Theme.of(context).colorScheme.onBackground,
+                              fontSize: 16,
+                            ),
+                          ),
+                  ],
                 ),
               ),
 
@@ -531,12 +521,10 @@ class _PopupQuestionScreenState extends State<PopupQuestionScreen> {
 
               const SizedBox(height: 24),
             ],
-          ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+          ), // Column
+        ), // SingleChildScrollView
+      ), // SafeArea
+    ), // Container
+    ); // Scaffold
   }
 }
