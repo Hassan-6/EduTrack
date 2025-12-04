@@ -232,8 +232,9 @@ class _InstructorCourseDetailScreenState
     }
   }
 
-  Future<void> _refreshCourse() async {
+  Future<void> _reloadAll() async {
     try {
+      // Reload course data
       final updatedCourse = await FirebaseService.getCourseById(
         _courseData['id'],
       );
@@ -242,9 +243,14 @@ class _InstructorCourseDetailScreenState
           _courseData = updatedCourse;
         });
       }
-      await _loadCourseStats();
+      // Reload all data in parallel
+      await Future.wait([
+        _loadCourseStats(),
+        _loadAttendanceHistory(),
+        _loadHistory(),
+      ]);
     } catch (e) {
-      print('Error refreshing course: $e');
+      print('Error reloading all data: $e');
     }
   }
 
@@ -253,7 +259,9 @@ class _InstructorCourseDetailScreenState
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Code copied to clipboard!'),
-        backgroundColor: Colors.green,
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ? Colors.green.shade700
+            : Colors.green,
         duration: Duration(seconds: 2),
       ),
     );
@@ -289,7 +297,9 @@ class _InstructorCourseDetailScreenState
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Course deleted successfully'),
-              backgroundColor: Colors.green,
+              backgroundColor: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.green.shade700
+                  : Colors.green,
             ),
           );
         }
@@ -298,7 +308,9 @@ class _InstructorCourseDetailScreenState
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Error deleting course: $e'),
-              backgroundColor: Colors.red,
+              backgroundColor: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.red.shade700
+                  : Colors.red,
             ),
           );
         }
@@ -336,7 +348,9 @@ class _InstructorCourseDetailScreenState
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Course archived successfully'),
-              backgroundColor: Colors.green,
+              backgroundColor: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.green.shade700
+                  : Colors.green,
             ),
           );
         }
@@ -345,7 +359,9 @@ class _InstructorCourseDetailScreenState
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Error archiving course: $e'),
-              backgroundColor: Colors.red,
+              backgroundColor: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.red.shade700
+                  : Colors.red,
             ),
           );
         }
@@ -354,20 +370,19 @@ class _InstructorCourseDetailScreenState
   }
 
   Future<void> _editCourse() async {
-    final result = await Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => EditCourseScreen(courseData: _courseData),
       ),
     );
 
-    if (result == true) {
-      await _refreshCourse();
-    }
+    // Always reload all data when returning from edit
+    await _reloadAll();
   }
 
   void _viewEnrollmentRequests() async {
-    final result = await Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => EnrollmentRequestsScreen(
@@ -377,13 +392,12 @@ class _InstructorCourseDetailScreenState
       ),
     );
 
-    if (result == true) {
-      await _refreshCourse();
-    }
+    // Always reload all data when returning from enrollment requests
+    await _reloadAll();
   }
 
   void _viewEnrolledStudents() async {
-    final result = await Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => EnrolledStudentsScreen(
@@ -393,12 +407,11 @@ class _InstructorCourseDetailScreenState
       ),
     );
 
-    if (result == true) {
-      await _refreshCourse();
-    }
+    // Always reload all data when returning from enrolled students
+    await _reloadAll();
   }
 
-  void _viewAttendanceHistory() {
+  void _viewAttendanceHistory() async {
     // Create a Course object for the attendance history screen
     final course = Course(
       id: _courseData['id'],
@@ -413,7 +426,7 @@ class _InstructorCourseDetailScreenState
       unreadMessages: 0,
     );
 
-    Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => AttendanceHistoryScreen(
@@ -422,9 +435,12 @@ class _InstructorCourseDetailScreenState
         ),
       ),
     );
+    
+    // Reload data when returning
+    await _reloadAll();
   }
 
-  void _presentQuestion() {
+  void _presentQuestion() async {
     // Create a Course object for the present question screen
     final course = Course(
       id: _courseData['id'],
@@ -439,15 +455,18 @@ class _InstructorCourseDetailScreenState
       unreadMessages: 0,
     );
 
-    Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => PresentQuestionScreen(course: course),
       ),
     );
+    
+    // Reload data when returning
+    await _reloadAll();
   }
 
-  void _scheduleQuiz() {
+  void _scheduleQuiz() async {
     // Create a Course object for the schedule quiz screen
     final course = Course(
       id: _courseData['id'],
@@ -462,11 +481,14 @@ class _InstructorCourseDetailScreenState
       unreadMessages: 0,
     );
 
-    Navigator.pushNamed(
+    await Navigator.pushNamed(
       context,
       RouteManager.getScheduleQuizRoute(),
       arguments: course,
     );
+    
+    // Reload data when returning
+    await _reloadAll();
   }
 
   @override
@@ -535,7 +557,7 @@ class _InstructorCourseDetailScreenState
       body: _isLoading
           ? Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: _refreshCourse,
+              onRefresh: _reloadAll,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(20),
@@ -1128,7 +1150,7 @@ class _InstructorCourseDetailScreenState
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               TextButton(
-                onPressed: () {
+                onPressed: () async {
                   final course = Course(
                     id: _courseData['id'],
                     name: _courseData['title'] ?? 'Course',
@@ -1142,7 +1164,7 @@ class _InstructorCourseDetailScreenState
                     unreadMessages: 0,
                   );
 
-                  Navigator.push(
+                  final result = await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => QuestionResultsScreen(
@@ -1155,6 +1177,11 @@ class _InstructorCourseDetailScreenState
                       ),
                     ),
                   );
+                  
+                  // Reload all data if question was ended
+                  if (result == true) {
+                    await _reloadAll();
+                  }
                 },
                 child: Text(
                   'View Details',
@@ -1191,7 +1218,7 @@ class _InstructorCourseDetailScreenState
                           courseId: _courseData['id'],
                           questionId: question['id'],
                         );
-                        _loadHistory();
+                        await _reloadAll();
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Question ended successfully')),
@@ -1226,6 +1253,9 @@ class _InstructorCourseDetailScreenState
     final totalSubmissions = submissions.length;
     final questions = quiz['questions'] as List<dynamic>? ?? [];
     final scheduledDate = quiz['scheduledDate'];
+    final durationMinutes = quiz['durationMinutes'] as int? ?? 60;
+    final isActive = quiz['isActive'] as bool? ?? false;
+    
     DateTime? date;
     if (scheduledDate != null) {
       if (scheduledDate is Timestamp) {
@@ -1233,6 +1263,54 @@ class _InstructorCourseDetailScreenState
       } else if (scheduledDate is DateTime) {
         date = scheduledDate;
       }
+    }
+
+    // Determine quiz status
+    String statusLabel;
+    Color statusBackgroundColor;
+    Color statusTextColor;
+    
+    if (date != null) {
+      final now = DateTime.now();
+      final endTime = date.add(Duration(minutes: durationMinutes));
+      
+      if (isActive && now.isBefore(endTime)) {
+        // Quiz is currently active
+        statusLabel = 'Active';
+        statusBackgroundColor = Theme.of(context).brightness == Brightness.dark
+            ? Colors.green.shade900.withOpacity(0.5)
+            : Colors.green.shade100;
+        statusTextColor = Theme.of(context).brightness == Brightness.dark
+            ? Colors.green.shade300
+            : Colors.green.shade700;
+      } else if (!isActive && now.isBefore(date)) {
+        // Quiz is scheduled but not yet started
+        statusLabel = 'Upcoming';
+        statusBackgroundColor = Theme.of(context).brightness == Brightness.dark
+            ? Colors.blue.shade900.withOpacity(0.5)
+            : Colors.blue.shade100;
+        statusTextColor = Theme.of(context).brightness == Brightness.dark
+            ? Colors.blue.shade300
+            : Colors.blue.shade700;
+      } else {
+        // Quiz has ended
+        statusLabel = 'Ended';
+        statusBackgroundColor = Theme.of(context).brightness == Brightness.dark
+            ? Colors.grey.shade800
+            : Colors.grey.shade200;
+        statusTextColor = Theme.of(context).brightness == Brightness.dark
+            ? Colors.grey.shade300
+            : Colors.grey.shade700;
+      }
+    } else {
+      // No scheduled date - treat as ended
+      statusLabel = 'Ended';
+      statusBackgroundColor = Theme.of(context).brightness == Brightness.dark
+          ? Colors.grey.shade800
+          : Colors.grey.shade200;
+      statusTextColor = Theme.of(context).brightness == Brightness.dark
+          ? Colors.grey.shade300
+          : Colors.grey.shade700;
     }
 
     return Container(
@@ -1262,27 +1340,15 @@ class _InstructorCourseDetailScreenState
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: (quiz['isActive'] == true)
-                      ? Theme.of(context).brightness == Brightness.dark
-                          ? Colors.green.shade900.withOpacity(0.5)
-                          : Colors.green.shade100
-                      : Theme.of(context).brightness == Brightness.dark
-                          ? Colors.grey.shade800
-                          : Colors.grey.shade200,
+                  color: statusBackgroundColor,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  quiz['isActive'] == true ? 'Active' : 'Ended',
+                  statusLabel,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    color: (quiz['isActive'] == true)
-                        ? Theme.of(context).brightness == Brightness.dark
-                            ? Colors.green.shade300
-                            : Colors.green.shade700
-                        : Theme.of(context).brightness == Brightness.dark
-                            ? Colors.grey.shade300
-                            : Colors.grey.shade700,
+                    color: statusTextColor,
                   ),
                 ),
               ),
@@ -1292,6 +1358,14 @@ class _InstructorCourseDetailScreenState
             const SizedBox(height: 4),
             Text(
               'Scheduled: ${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Duration: $durationMinutes minutes',
               style: GoogleFonts.inter(
                 fontSize: 12,
                 color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
@@ -1311,7 +1385,7 @@ class _InstructorCourseDetailScreenState
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               TextButton(
-                onPressed: () {
+                onPressed: () async {
                   final course = Course(
                     id: _courseData['id'],
                     name: _courseData['title'] ?? 'Course',
@@ -1325,7 +1399,7 @@ class _InstructorCourseDetailScreenState
                     unreadMessages: 0,
                   );
 
-                  Navigator.push(
+                  final result = await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => QuizResultsScreen(
@@ -1335,6 +1409,11 @@ class _InstructorCourseDetailScreenState
                       ),
                     ),
                   );
+                  
+                  // Reload all data if quiz was ended
+                  if (result == true) {
+                    await _reloadAll();
+                  }
                 },
                 child: Text(
                   'View Results',
@@ -1371,7 +1450,7 @@ class _InstructorCourseDetailScreenState
                           courseId: _courseData['id'],
                           quizId: quiz['id'] ?? '',
                         );
-                        _loadHistory();
+                        await _reloadAll();
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Quiz ended successfully')),

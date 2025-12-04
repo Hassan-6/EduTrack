@@ -289,17 +289,17 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: _quizTitleController,
-                    decoration: InputDecoration(
-                      hintText: 'Enter quiz title...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                      decoration: InputDecoration(
+                        hintText: 'Enter quiz title...',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: Theme.of(context).dividerColor),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: Theme.of(context).primaryColor),
+                        ),
                       ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFF4E9FEC)),
-                      ),
-                    ),
                     style: GoogleFonts.inter(
                       color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 14,
@@ -488,8 +488,8 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
                         height: 40,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF4E9FEC), Color(0xFF5CD6C0)],
+                          gradient: LinearGradient(
+                            colors: [Theme.of(context).primaryColor, Theme.of(context).colorScheme.secondary],
                           ),
                         ),
                         child: Material(
@@ -638,7 +638,7 @@ class _ScheduleQuizScreenState extends State<ScheduleQuizScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: Theme.of(context).dividerColor),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(

@@ -207,6 +207,7 @@ class _PopupQuestionScreenState extends State<PopupQuestionScreen> {
     final List<String> answers = options.map((o) => o.toString()).toList();
     
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       body: Container(
         width: double.infinity,
         height: double.infinity,
@@ -214,7 +215,13 @@ class _PopupQuestionScreenState extends State<PopupQuestionScreen> {
           gradient: themeProvider.gradient, // THEME: Dynamic gradient
         ),
         child: SafeArea(
-          child: Column(
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: MediaQuery.of(context).size.height - MediaQuery.of(context).padding.top - MediaQuery.of(context).padding.bottom,
+              ),
+              child: IntrinsicHeight(
+                child: Column(
             children: [
               // Header with back button
               Padding(
@@ -524,6 +531,9 @@ class _PopupQuestionScreenState extends State<PopupQuestionScreen> {
 
               const SizedBox(height: 24),
             ],
+          ),
+              ),
+            ),
           ),
         ),
       ),

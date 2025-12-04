@@ -104,6 +104,7 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
+          backgroundColor: Theme.of(context).cardColor,
           title: Row(
             children: [
               const Icon(Icons.check_circle, color: Colors.green, size: 24),
@@ -113,24 +114,28 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.onBackground,
                 ),
               ),
             ],
           ),
           content: Text(
             'The question has been successfully presented to your students.',
-            style: GoogleFonts.inter(fontSize: 14),
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.pop(context); // Close dialog
-                Navigator.pop(context); // Return to Course Details Screen
+                Navigator.pop(context, true); // Return to Course Details Screen with success flag
               },
               child: Text(
                 'OK',
                 style: GoogleFonts.inter(
-                  color: const Color(0xFF4E9FEC),
+                  color: Theme.of(context).primaryColor,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -488,7 +493,7 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
                         _hasCorrectAnswer = value;
                       });
                     },
-                    activeColor: const Color(0xFF4E9FEC),
+                    activeColor: Theme.of(context).primaryColor,
                   ),
                 ],
               ),
@@ -515,8 +520,8 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
                     blurRadius: 6,
                   )
                 ],
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF4E9FEC), Color(0xFF5CD6C0)],
+                gradient: LinearGradient(
+                  colors: [Theme.of(context).primaryColor, Theme.of(context).colorScheme.secondary],
                 ),
               ),
               child: Material(
@@ -559,9 +564,9 @@ class _PresentQuestionScreenState extends State<PresentQuestionScreen> {
           child: Container(
             height: 44,
             decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFF4E9FEC) : Colors.transparent,
+              color: isSelected ? Theme.of(context).primaryColor : Colors.transparent,
               border: Border.all(
-                color: isSelected ? const Color(0xFF4E9FEC) : Theme.of(context).dividerColor,
+                color: isSelected ? Theme.of(context).primaryColor : Theme.of(context).dividerColor,
               ),
               borderRadius: BorderRadius.circular(8),
             ),

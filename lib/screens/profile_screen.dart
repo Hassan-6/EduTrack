@@ -306,27 +306,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  void _logout() {
+  void _logout() async {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
+        backgroundColor: Theme.of(context).cardColor,
+        title: Text(
+          'Logout',
+          style: TextStyle(color: Theme.of(context).colorScheme.onBackground),
+        ),
+        content: Text(
+          'Are you sure you want to logout?',
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+            ),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pushNamedAndRemoveUntil(
-                context, 
-                '/registration', 
-                (route) => false
-              );
+            onPressed: () async {
+              Navigator.pop(context); // Close dialog
+              
+              // Sign out from Firebase through AuthProvider
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              await authProvider.signOut();
+              
+              // Navigate to registration screen and clear all routes
+              if (mounted) {
+                Navigator.pushNamedAndRemoveUntil(
+                  context, 
+                  '/registration', 
+                  (route) => false
+                );
+              }
             },
-            child: const Text('Logout'),
+            child: const Text(
+              'Logout',
+              style: TextStyle(color: Color(0xFFDC2626)),
+            ),
           ),
         ],
       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -238,9 +239,16 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await _loadCourseInfo();
+          await _checkActivityStatus();
+          await _loadHistory();
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: Column(
           children: [
             // Course Header
             Container(
@@ -379,6 +387,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
             // History Section
             _buildHistorySection(themeProvider),
           ],
+        ),
         ),
       ),
     );
@@ -854,7 +863,8 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
               ..._popupQuestionsHistory.map((question) => _buildHistoryItem(
                 title: question['question'] ?? 'Question',
                 type: 'Question',
-                isActive: question['isActive'] == true,
+                statusLabel: question['isActive'] == true ? 'Active' : 'Ended',
+                isHighlighted: question['isActive'] == true,
                 onTap: () {
                   final course = Course(
                     id: widget.course.id,
@@ -897,11 +907,25 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              ..._quizzesHistory.map((quiz) => _buildHistoryItem(
-                title: quiz['title'] ?? 'Quiz',
-                type: 'Quiz',
-                isActive: quiz['isActive'] == true,
-                onTap: () {
+              ..._quizzesHistory.map((quiz) {
+                final bool isActive = quiz['isActive'] == true;
+                final DateTime? scheduledDate = quiz['scheduledDate'] is Timestamp
+                    ? (quiz['scheduledDate'] as Timestamp).toDate()
+                    : quiz['scheduledDate'] is DateTime
+                        ? quiz['scheduledDate'] as DateTime
+                        : null;
+                final bool isUpcoming = !isActive && scheduledDate != null && scheduledDate.isAfter(DateTime.now());
+                final String statusLabel = isActive
+                    ? 'Active'
+                    : isUpcoming
+                        ? 'Upcoming'
+                        : 'Ended';
+                return _buildHistoryItem(
+                  title: quiz['title'] ?? 'Quiz',
+                  type: 'Quiz',
+                  statusLabel: statusLabel,
+                  isHighlighted: isActive || isUpcoming,
+                  onTap: () {
                   final course = Course(
                     id: widget.course.id,
                     name: widget.course.name,
@@ -925,7 +949,8 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                     ),
                   );
                 },
-              )),
+              );
+              }).toList(),
             ],
           ],
         ],
@@ -936,7 +961,8 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
   Widget _buildHistoryItem({
     required String title,
     required String type,
-    required bool isActive,
+    String statusLabel = 'Ended',
+    bool isHighlighted = false,
     required VoidCallback onTap,
   }) {
     return Container(
@@ -987,7 +1013,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isActive
+                  color: isHighlighted
                       ? Theme.of(context).brightness == Brightness.dark
                           ? Colors.green.shade900.withOpacity(0.5)
                           : Colors.green.shade100
@@ -997,11 +1023,11 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  isActive ? 'Active' : 'Ended',
+                  statusLabel,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    color: isActive
+                    color: isHighlighted
                         ? Theme.of(context).brightness == Brightness.dark
                             ? Colors.green.shade300
                             : Colors.green.shade700

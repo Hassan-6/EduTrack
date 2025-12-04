@@ -129,7 +129,7 @@ class _QuestionResultsScreenState extends State<QuestionResultsScreen> {
       );
       
       Navigator.pop(context); // Close loading
-      Navigator.pop(context); // Close results screen
+      Navigator.pop(context, true); // Close results screen and signal reload
       
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Question session ended')),
